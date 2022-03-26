@@ -1,0 +1,17 @@
+{
+    "name": "godsgood33/yts-parser",
+    "description": "This library reads all the pages of https://yts.mx and stores the titles in a database then you simply need to change the flags to download",
+    "type": "library",
+    "license": "Apache-2.0",
+    "authors": [
+        {
+            "name": "Ryan Prather",
+            "email": "godsgood33@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.2",
+        "paquettg/php-html-parser": "^3.1",
+        "transmission-php/transmission-php": "^2.2"
+    }
+}
