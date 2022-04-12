@@ -86,6 +86,29 @@ class TransServer
     }
 
     /**
+     * Method to check for and start a download
+     *
+     * @param Movie $movie
+     */
+    public function checkForDownload(Movie &$movie)
+    {
+        if ($movie->uhdTorrent) {
+            $this->add($movie->uhdTorrent);
+            $movie->download = false;
+            $movie->uhdComplete = true;
+            $movie->fhdComplete = true;
+            $movie->hdComplete = true;
+        } elseif ($movie->fhdTorrent) {
+            $this->add($movie->fhdTorrent);
+            $movie->fhdComplete = true;
+            $movie->hdComplete = true;
+        } elseif ($movie->hdTorrent) {
+            $this->add($movie->hdTorrent);
+            $movie->hdComplete = true;
+        }
+    }
+
+    /**
      * Method to add torrent
      *
      * @param string $url

@@ -2,9 +2,9 @@
 
 namespace YTS;
 
+use SQLite3;
 use PHPHtmlParser\Dom;
 use GuzzleHttp\Exception\ConnectException;
-use SQLite3;
 use YTS\Movie;
 
 /**
@@ -71,7 +71,7 @@ class YTS
      *
      * @param Movie $m
      */
-    public function getTorrent(Movie &$m)
+    public function getTorrentLinks(Movie &$m)
     {
         if ($m->uhdComplete) {
             return false;
@@ -87,11 +87,11 @@ class YTS
             if ($ce->getHandlerContext()['errno'] == 7) {
                 print "Connection error on page {$m->url}...retrying in 5 sec".PHP_EOL;
                 sleep(5);
-                $this->getTorrent($m);
+                $this->getTorrentLinks($m);
             } elseif ($ce->getHandlerContext()['errno'] == 28) {
                 print "SSH error on page {$m->url}..retrying in 5 sec".PHP_EOL;
                 sleep(5);
-                $this->getTorrent($m);
+                $this->getTorrentLinks($m);
             } else {
                 die(print_r($ce, true));
             }
@@ -153,9 +153,9 @@ class YTS
      */
     public function isMoviePresent(Movie $m): bool
     {
-        $res = $this->getMovie($m);
+        $res = $this->getMovie($m->title, $m->year);
 
-        if (is_array($res)) {
+        if (is_a($res, 'YTS/Movie')) {
             return isset($res['title']);
         }
         return false;
@@ -164,22 +164,29 @@ class YTS
     /**
      * Method to get a movie from the database
      *
-     * @param Movie $m
+     * @param string $title
+     * @param int $year
      *
-     * @return array|bool
+     * @return Movie|bool
      */
-    public function getMovie(Movie $m)
+    public function getMovie(string $title, int $year)
     {
         $res = $this->db->query(
             "SELECT *
             FROM `movies`
             WHERE
-            `title` = '{$this->db->escapeString($m->title)}'
+            `title` = '{$this->db->escapeString($title)}'
             AND
-            `year` = '{$this->db->escapeString($m->year)}'"
+            `year` = '{$this->db->escapeString($year)}'"
         );
 
-        return $res->fetchArray(SQLITE3_ASSOC);
+        $row = $res->fetchArray(SQLITE3_ASSOC);
+
+        if ($row) {
+            return Movie::fromDB($row);
+        }
+
+        return false;
     }
 
     /**
@@ -187,7 +194,7 @@ class YTS
      *
      * @return array:Movie
      */
-    public function getMovies(): array
+    public function getDownloadableMovies(): array
     {
         $movies = [];
         $res = $this->db->query(
@@ -247,6 +254,57 @@ class YTS
         );
 
         return $res;
+    }
+
+    /**
+     * Method to update a movie title and kick off a download
+     *
+     * @param string $title
+     * @param int $year
+     */
+    public function updateDownload(string $title, int $year)
+    {
+        $this->db->exec(
+            "UPDATE movies
+            SET download = '1'
+            WHERE
+            `title` = '{$this->db->escapeString($title)}'
+            AND
+            `year` = '{$this->db->escapeString($year)}'"
+        );
+
+        $m = $this->getMovie($title, $year);
+        if ($m) {
+            $res = $this->getTorrentLinks($m);
+            $this->updateMovie($m);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Method to search and auto complete movie titles
+     *
+     * @param string $search
+     */
+    public function autoComplete(string $search)
+    {
+        $res = $this->db->query(
+            "SELECT *
+            FROM movies
+            WHERE
+            `title` LIKE '%{$this->db->escapeString($search)}%'
+            OR
+            `year` LIKE '%{$this->db->escapeString($search)}%'
+            ORDER BY `title`,`year`"
+        );
+
+        $ret = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $res = $row['title'].' ('.$row['year'].')';
+        }
+
+        print json_encode($ret);
     }
 
     /**

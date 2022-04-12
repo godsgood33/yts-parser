@@ -85,11 +85,18 @@ class Movie
     public bool $uhdComplete;
 
     /**
-     * Stores the common name for the highest resolution available
+     * Stores the common name for the highest resolution on Plex
      *
      * @var string
      */
     public ?string $highestResolution;
+
+    /**
+     * Stores the common name for the highest resolution available for download
+     *
+     * @var string
+     */
+    public ?string $highestResolutionAvailable;
 
     /**
      * Constructor
@@ -174,12 +181,22 @@ class Movie
         $self->download = (bool) $sc['download'];
 
         $self->highestResolution = null;
+        $self->highestResolutionAvailable = null;
+        
         if ($self->uhdComplete) {
             $self->highestResolution = '4K';
         } elseif ($self->fhdComplete) {
             $self->highestResolution = 'FHD';
         } elseif ($self->hdComplete) {
             $self->highestResolution = 'HD';
+        }
+
+        if ($self->uhdTorrent) {
+            $self->highestResolutionAvailable = '4K';
+        } elseif ($self->fhdTorrent) {
+            $self->highestResolutionAvailable = 'FHD';
+        } elseif ($self->hdTorrent) {
+            $self->highestResolutionAvailable = 'HD';
         }
 
         return $self;

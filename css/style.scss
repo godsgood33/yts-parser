@@ -1,0 +1,23 @@
+@media screen and (max-width: 1920px) {
+    body {
+        background-color: #000;
+        color: #fff;
+        font-size: 10pt;
+        word-wrap: normal;
+        display: flex;
+    }
+
+    a {
+        color: #fff;
+        text-decoration: none;
+    }
+
+    img {
+        display: block;
+        max-width: 150px;
+    }
+
+    #container {
+        flex-direction: row;
+    }
+}

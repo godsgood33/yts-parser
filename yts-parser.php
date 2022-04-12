@@ -112,7 +112,7 @@ if (isset($cmd['update'])) {
 
 if (isset($cmd['download'])) {
     $yts = new YTS();
-    $movies = $yts->getMovies();
+    $movies = $yts->getDownloadableMovies();
     $ts = new TransServer(
         getenv('TRANSMISSION_DOWNLOAD_DIR'),
         getenv('TRANSMISSION_URL'),
@@ -127,30 +127,13 @@ if (isset($cmd['download'])) {
 
     foreach ($movies as $movie) {
         print "Checking for {$movie}".PHP_EOL;
-        $res = $yts->getTorrent($movie);
+        $res = $yts->getTorrentLinks($movie);
 
         if ($res) {
-            if ($movie->uhdTorrent) {
-                $ts->add($movie->uhdTorrent);
-                $movie->download = false;
-                $movie->uhdComplete = true;
-                $movie->fhdComplete = true;
-                $movie->hdComplete = true;
-            } elseif ($movie->fhdTorrent) {
-                $ts->add($movie->fhdTorrent);
-                $movie->fhdComplete = true;
-                $movie->hdComplete = true;
-            } elseif ($movie->hdTorrent) {
-                $ts->add($movie->hdTorrent);
-                $movie->hdComplete = true;
-            }
+            $ts->checkForDownload($movie);
         }
 
-        if ($movie->uhdTorrent) {
-            if ($tor) {
-                $yts->updateMovie($movie);
-            }
-        }
+        $yts->updateMovie($movie);
         //sleep(1);
     }
 }
