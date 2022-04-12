@@ -1,9 +1,9 @@
 <?php
 
+namespace YTS;
+
 /**
  * Class to create a movie
- *
- * @author Ryan Prather <godsgood33@gmail.com>
  */
 class Movie
 {
@@ -85,6 +85,13 @@ class Movie
     public bool $uhdComplete;
 
     /**
+     * Stores the common name for the highest resolution available
+     *
+     * @var string
+     */
+    public ?string $highestResolution;
+
+    /**
      * Constructor
      *
      * @param string $title
@@ -127,15 +134,18 @@ class Movie
         } elseif ((
             $res['width'] >= 1280 && $res['width'] < 1920
         )) {
+            print "HD version found".PHP_EOL;
             $this->download = 1;
             $this->hdComplete = 1;
         } elseif ((
             $res['width'] >= 1920 && $res['width'] < 3840
         )) {
+            print "FHD version found".PHP_EOL;
             $this->download = 1;
             $this->hdComplete = 1;
             $this->fhdComplete = 1;
         } elseif ($res['width'] >= 3840) {
+            print "4K version found".PHP_EOL;
             $this->download = 0;
             $this->hdComplete = 1;
             $this->fhdComplete = 1;
@@ -162,6 +172,15 @@ class Movie
         $self->uhdTorrent = $sc['torrent2160'];
         $self->uhdComplete = (bool) $sc['complete2160'];
         $self->download = (bool) $sc['download'];
+
+        $self->highestResolution = null;
+        if ($self->uhdComplete) {
+            $self->highestResolution = '4K';
+        } elseif ($self->fhdComplete) {
+            $self->highestResolution = 'FHD';
+        } elseif ($self->hdComplete) {
+            $self->highestResolution = 'HD';
+        }
 
         return $self;
     }
@@ -197,8 +216,6 @@ class Movie
     {
         $set = "";
         $arr = [
-            'title' => $this->title,
-            'year' => $this->year,
             'url' => $this->url,
             'imgUrl' => $this->imgUrl,
             'torrent720' => $this->hdTorrent,
@@ -211,7 +228,7 @@ class Movie
         ];
 
         foreach ($arr as $key => $val) {
-            $val = SQLite3::escapeString($val);
+            $val = \SQLite3::escapeString($val);
             $set .= "`{$key}`='{$val}',";
         }
 
