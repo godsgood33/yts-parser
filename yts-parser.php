@@ -55,7 +55,7 @@ if (isset($cmd['update'])) {
         $yts->load($page);
         $movies = $yts->findMovies();
 
-        if (!is_countable($movies)) {
+        if (!count($movies)) {
             die;
         }
         
