@@ -1,41 +1,34 @@
 <?php
 
 require_once __DIR__."/vendor/autoload.php";
-require_once __DIR__."/Movie.php";
-require_once __DIR__."/DotEnv.php";
-require_once __DIR__."/TransServer.php";
-require_once __DIR__.'/YTS.php';
-require_once __DIR__.'/Plex.php';
 
 use YTS\Movie;
 use YTS\Plex;
 use YTS\TransServer;
 use YTS\YTS;
+use YTS\DotEnv;
 
-Godsgood33\DotEnv::load(__DIR__.'/.env');
-$cmd = getopt('h', [
-    'page:', 'count:', 'install::', 'download::', 'update::', 'plex:', 'web::', 'help::', 'autostart::'
-]);
+DotEnv::load(__DIR__.'/.env');
+$cmd = YTS::getCommandParameters();
 
-if (isset($cmd['h']) || isset($cmd['help'])) {
+if ($cmd->showHelp) {
     die(YTS::usage());
 }
 
-if (isset($cmd['page']) && is_numeric($cmd['page'])) {
-    $startPage = $cmd['page'];
-    $page = $cmd['page'];
-} else {
-    $startPage = 1;
-    $page = 1;
+$startPage = 1;
+$page = 1;
+if ($cmd->startPage) {
+    $startPage = $cmd->startPage;
+    $page = $cmd->startPage;
 }
 
-if (isset($cmd['install'])) {
+if ($cmd->install) {
     YTS::install();
 
-    print "Created database table in movies.db".PHP_EOL;
+    die("Created database table in movies.db");
 }
 
-if (isset($cmd['update'])) {
+if ($cmd->update) {
     $page = $startPage;
     $keepGoing = true;
     $newMovie = 0;
@@ -45,8 +38,8 @@ if (isset($cmd['update'])) {
     $uhdMovies = 0;
     $yts = new YTS();
     $plex = new Plex();
-    if (isset($cmd['plex']) && $cmd['plex'] && file_exists($cmd['plex'])) {
-        $plex->setDB($cmd['plex']);
+    if ($cmd->plexDB) {
+        $plex->setDB($cmd->plexDB);
     }
 
     do {
@@ -56,7 +49,7 @@ if (isset($cmd['update'])) {
         $movies = $yts->findMovies();
 
         if (!count($movies)) {
-            die;
+            $keepGoing = false;
         }
         
         foreach ($movies as $movie) {
@@ -76,13 +69,9 @@ if (isset($cmd['update'])) {
                     $nm->setDownload($onPlex);
                 }
 
-                if ($nm->uhdTorrent) {
-                    $uhdMovies++;
-                } elseif ($nm->fhdTorrent) {
-                    $fhdMovies++;
-                } elseif ($nm->hdTorrent) {
-                    $hdMovies++;
-                }
+                $nm->uhdTorrent ? $uhdMovies++ : null;
+                $nm->fhdTorrent ? $fhdMovies++ : null;
+                $nm->hdTorrent ? $hdMovies++ : null;
             }
 
             if (!$yts->isMoviePresent($nm)) {
@@ -96,13 +85,9 @@ if (isset($cmd['update'])) {
             }
         }
 
-        //sleep(5);
-
         $page++;
-        if (isset($cmd['count']) && is_numeric($cmd['count'])) {
-            if ($page >= ($startPage + $cmd['count'])) {
-                $keepGoing = false;
-            }
+        if ($cmd->pageCount) {
+            $keepGoing = !($page >= ($startPage + $cmd->pageCount));
         }
     } while ($keepGoing);
 
@@ -110,16 +95,10 @@ if (isset($cmd['update'])) {
     print "Existing movies: {$existingMovie}".PHP_EOL;
 }
 
-if (isset($cmd['download'])) {
+if ($cmd->download) {
     $yts = new YTS();
     $movies = $yts->getDownloadableMovies();
-    $ts = new TransServer(
-        getenv('TRANSMISSION_DOWNLOAD_DIR'),
-        getenv('TRANSMISSION_URL'),
-        getenv('TRANSMISSION_PORT'),
-        getenv('TRANSMISSION_USER'),
-        getenv('TRANSMISSION_PASSWORD')
-    );
+    $ts = new TransServer();
 
     if (!is_countable($movies)) {
         die("No movies found");
@@ -134,6 +113,17 @@ if (isset($cmd['download'])) {
         }
 
         $yts->updateMovie($movie);
-        //sleep(1);
+    }
+}
+
+if ($cmd->highestVersion) {
+    $yts = new YTS();
+    $movies = $yts->getMovies();
+
+    foreach ($movies as $movie) {
+        print "Getting resolutions for $movie".PHP_EOL;
+        $yts->getTorrentLinks($movie);
+
+        $yts->updateMovie($movie);
     }
 }

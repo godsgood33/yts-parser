@@ -2,9 +2,9 @@
 
 require_once dirname(__DIR__).'/vendor/autoload.php';
 
-use Godsgood33\YTS\YTS;
-use Godsgood33\YTS\DotEnv;
-use Godsgood33\YTS\TransServer;
+use YTS\YTS;
+use YTS\DotEnv;
+use YTS\TransServer;
 
 $action = $_POST['action'] ?? null;
 $yts = new YTS();

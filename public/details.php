@@ -2,7 +2,7 @@
 
 require_once dirname(__DIR__).'/vendor/autoload.php';
 
-use Godsgood33\YTS\YTS;
+use YTS\YTS;
 
 $yts = new YTS();
 
@@ -47,12 +47,8 @@ $movie = $yts->getMovie($title, $year);
         <br />
         <?php
         if ($movie->highestResolution != '4K') {
-            ?>
-        Download:
-        <input type='checkbox' name='download' id='download' value='1' <?php print $movie->download ? 'checked readonly' : null ?>
-        />
-        <br />
-        <?php
+            $checked = ($movie->download ? 'checked readonly' : null);
+            print "Download: <input type='checkbox' name='download' id='download' value='1' $checked /><br />";
         }
         ?>
 

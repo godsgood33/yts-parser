@@ -1,6 +1,6 @@
 <?php
 
-namespace Godsgood33\YTS;
+namespace YTS;
 
 /**
  * Class to create a movie

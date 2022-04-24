@@ -2,8 +2,8 @@
 
 require_once dirname(__DIR__).'/vendor/autoload.php';
 
-use Godsgood33\YTS\YTS;
-use Godsgood33\YTS\DotEnv;
+use YTS\YTS;
+use YTS\DotEnv;
 
 DotEnv::load(dirname(__DIR__).'/.env');
 $yts = new YTS();

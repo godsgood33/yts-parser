@@ -1,15 +1,15 @@
 <?php
 
-namespace Godsgood33\YTS;
+namespace YTS;
 
 use SQLite3;
+use stdClass;
 use PHPHtmlParser\Dom;
 use GuzzleHttp\Exception\ConnectException;
-use Godsgood33\YTS\Movie;
-use stdClass;
+use YTS\Movie;
 
 /**
- *
+ * Over all method for all access
  */
 class YTS
 {
@@ -175,6 +175,25 @@ class YTS
             return isset($res['title']);
         }
         return false;
+    }
+
+    /**
+     * Method to return an array of all movies in the database
+     *
+     * @return array:Movie
+     */
+    public function getMovies(): array
+    {
+        $ret = [];
+        $res = $this->db->query(
+            "SELECT * FROM `movies` ORDER BY `title`,`year`"
+        );
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $movie = Movie::fromDB($row);
+            $ret[] = $movie;
+        }
+
+        return $ret;
     }
 
     /**
@@ -435,7 +454,7 @@ class YTS
     {
         $ret = new stdClass();
         $arr = getopt('h', [
-            'install::', 'update::', 'download::', 'page:', 'count:', 'plex:', 'help::'
+            'install::', 'update::', 'download::', 'page:', 'count:', 'plex:', 'help::', 'highestVersion::'
         ]);
 
         $ret->showHelp = (isset($arr['h']) || isset($arr['help']));
@@ -443,6 +462,7 @@ class YTS
         $ret->install = isset($arr['install']);
         $ret->update = isset($arr['update']);
         $ret->download = isset($arr['download']);
+        $ret->highestVersion = isset($arr['highestVersion']);
         $ret->startPage = (
             isset($arr['page']) && is_numeric($arr['page']) && $arr['page'] > 0 ? $arr['page'] : 1
         );
@@ -462,16 +482,18 @@ class YTS
     public static function usage()
     {
         print <<<EOF
-        This script is used to scrape yts.mx website for all movies.  You can then set a flag to have it retrieve the torrent links and download them with a Transmission server.
-        
-            --install               Flag to call first to create the required tables
-            --update                Flag to start the scraping
-            --download              Flag to start the download process
-            --page={number}         What page do you want to start on
-            --count={number}        How many pages do you want to read
-            --plex={Plex library}   Flag to point to a Plex library
-            -h | --help             This page
+This script is used to scrape yts.mx website for all movies.  You can then set a flag to have it retrieve the torrent links and download them with a Transmission server.
 
-        EOF;
+--install               Flag to call first to create the required tables
+--update                Flag to start the scraping
+--highestVersion        Flag to scrap each movie for the torrent links and get the highest quality version available
+--download              Flag to start the download process
+--page={number}         What page do you want to start on
+--count={number}        How many pages do you want to read
+--plex={Plex library}   Flag to point to a Plex library
+-h | --help             This page
+
+
+EOF;
     }
 }
