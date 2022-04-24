@@ -1,11 +1,12 @@
 <?php
 
-namespace YTS;
+namespace Godsgood33\YTS;
 
 use SQLite3;
 use PHPHtmlParser\Dom;
 use GuzzleHttp\Exception\ConnectException;
-use YTS\Movie;
+use Godsgood33\YTS\Movie;
+use stdClass;
 
 /**
  *
@@ -34,12 +35,31 @@ class YTS
     private Dom $dom;
 
     /**
+     * Constant to contain the number of movies to display on the index page
+     *
+     * @var int
+     */
+    public const PAGE_COUNT = 30;
+
+    /**
+     * Decide if the Transmission server is available
+     *
+     * @var bool
+     */
+    private bool $transmissionSvrConnected;
+    
+    /**
      * Constructor
      */
     public function __construct()
     {
         $this->dom = new Dom();
-        $this->db = new SQLite3('movies.db');
+        $this->db = new SQLite3(dirname(__DIR__).'/movies.db');
+
+        $this->transmissionSvrConnected = self::ping(
+            getenv('TRANSMISSION_URL'),
+            getenv('TRANSMISSION_PORT')
+        );
     }
 
     /**
@@ -74,10 +94,6 @@ class YTS
     public function getTorrentLinks(Movie &$m)
     {
         if ($m->uhdComplete) {
-            return false;
-        } elseif ($m->fhdComplete && !$m->uhdComplete) {
-            return false;
-        } elseif ($m->hdComplete && !$m->fhdComplete && !$m->uhdComplete) {
             return false;
         }
 
@@ -171,6 +187,7 @@ class YTS
      */
     public function getMovie(string $title, int $year)
     {
+        $row = null;
         $res = $this->db->query(
             "SELECT *
             FROM `movies`
@@ -180,13 +197,58 @@ class YTS
             `year` = '{$this->db->escapeString($year)}'"
         );
 
-        $row = $res->fetchArray(SQLITE3_ASSOC);
+        if (is_a($res, 'SQLite3Result')) {
+            $row = $res->fetchArray(SQLITE3_ASSOC);
+        }
 
         if ($row) {
             return Movie::fromDB($row);
         }
 
         return false;
+    }
+
+    /**
+     * Method to get the movie listing from the page
+     *
+     * @param int $pageNo
+     *
+     * @return array:Movie
+     */
+    public function getMoviesByPage(int $pageNo): array
+    {
+        $ret = [];
+        $PAGE_COUNT = self::PAGE_COUNT;
+        $offset = $pageNo * self::PAGE_COUNT;
+        $res = $this->db->query(
+            "SELECT *
+            FROM `movies`
+            ORDER BY `title`,`year`
+            LIMIT {$offset},{$PAGE_COUNT}"
+        );
+
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $movie = Movie::fromDB($row);
+            $ret[] = $movie;
+        }
+
+        return $ret;
+    }
+
+    /**
+     * Method to get page count
+     *
+     * @return int
+     */
+    public function getPageCount(): int
+    {
+        $PAGE_COUNT = self::PAGE_COUNT;
+        $res = $this->db->querySingle(
+            "SELECT count(1) / {$PAGE_COUNT} AS 'count'
+            FROM `movies`"
+        );
+
+        return $res;
     }
 
     /**
@@ -213,6 +275,16 @@ class YTS
         }
 
         return $movies;
+    }
+
+    /**
+     * Method to find if the Transmission Server is available
+     *
+     * @return bool
+     */
+    public function isTransmissionConnected(): bool
+    {
+        return $this->transmissionSvrConnected;
     }
 
     /**
@@ -286,25 +358,29 @@ class YTS
      * Method to search and auto complete movie titles
      *
      * @param string $search
+     *
+     * @return string
      */
-    public function autoComplete(string $search)
+    public function autoComplete(string $search): string
     {
-        $res = $this->db->query(
-            "SELECT *
-            FROM movies
-            WHERE
-            `title` LIKE '%{$this->db->escapeString($search)}%'
-            OR
-            `year` LIKE '%{$this->db->escapeString($search)}%'
-            ORDER BY `title`,`year`"
-        );
+        $sql = "SELECT *
+        FROM movies
+        WHERE
+        `title` LIKE '%{$this->db->escapeString($search)}%'
+        OR
+        `year` LIKE '%{$this->db->escapeString($search)}%'
+        ORDER BY `title`,`year`";
+        $res = $this->db->query($sql);
 
         $ret = [];
-        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
-            $res = $row['title'].' ('.$row['year'].')';
+        if (is_a($res, 'SQLite3Result') && $res->numColumns() > 1) {
+            while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+                $res = "{$row['title']} ({$row['year']})";
+            }
         }
 
-        print json_encode($ret);
+        return header('Content-type: application/json').
+            json_encode($ret);
     }
 
     /**
@@ -319,6 +395,7 @@ class YTS
             `url` varchar(255) NOT NULL,
             `imgUrl` varchar(255) DEFAULT NULL,
             `download` tinyint(1) DEFAULT '0',
+            `hide` tinyint(1) DEFAULT '0',
             `torrent720` varchar(255) DEFAULT NULL,
             `complete720` tinyint(1) DEFAULT '0',
             `torrent1080` varchar(255) DEFAULT NULL,
@@ -327,6 +404,56 @@ class YTS
             `complete2160` tinyint(1) DEFAULT '0',
             PRIMARY KEY (`title`,`year`)
         )");
+    }
+
+    /**
+     * Function to ping a host and respond boolean
+     *
+     * @param string $strHost
+     * @param integer $intPort [optional]
+     * @param integer $intTimeout [optional]
+     *
+     * @return boolean
+     */
+    public static function ping(string $strHost, int $intPort = 80, int $intTimeout = 5)
+    {
+        $errno = null;
+        $errstr = null;
+        $fsock = @fsockopen($strHost, $intPort, $errno, $errstr, $intTimeout);
+        if (is_resource($fsock)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Method to get the command line parameters and return an object with them
+     *
+     * @return stdClass
+     */
+    public static function getCommandParameters()
+    {
+        $ret = new stdClass();
+        $arr = getopt('h', [
+            'install::', 'update::', 'download::', 'page:', 'count:', 'plex:', 'help::'
+        ]);
+
+        $ret->showHelp = (isset($arr['h']) || isset($arr['help']));
+
+        $ret->install = isset($arr['install']);
+        $ret->update = isset($arr['update']);
+        $ret->download = isset($arr['download']);
+        $ret->startPage = (
+            isset($arr['page']) && is_numeric($arr['page']) && $arr['page'] > 0 ? $arr['page'] : 1
+        );
+        $ret->pageCount = (
+            isset($arr['count']) && is_numeric($arr['count']) && $arr['count'] > 0 ? $arr['count'] : null
+        );
+        $ret->plexDB = (
+            isset($arr['plex']) && $arr['plex'] && file_exists($arr['plex']) ? $arr['plex'] : null
+        );
+
+        return $ret;
     }
 
     /**
@@ -344,7 +471,7 @@ class YTS
             --count={number}        How many pages do you want to read
             --plex={Plex library}   Flag to point to a Plex library
             -h | --help             This page
-        
+
         EOF;
     }
 }

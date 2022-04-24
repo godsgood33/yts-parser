@@ -1,6 +1,6 @@
 <?php
 
-namespace YTS;
+namespace Godsgood33\YTS;
 
 /**
  * Class to create a movie
@@ -158,6 +158,28 @@ class Movie
             $this->fhdComplete = 1;
             $this->uhdComplete = 1;
         }
+    }
+
+    /**
+     * Method to get the class for web page display
+     *
+     * @return null|string
+     */
+    public function getClass(): ?string
+    {
+        if ($this->uhdComplete) {
+            return 'have4k';
+        }
+
+        if ($this->fhdComplete) {
+            return 'havefhd';
+        }
+
+        if ($this->hdComplete) {
+            return 'havehd';
+        }
+
+        return null;
     }
 
     /**

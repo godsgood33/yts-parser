@@ -1,11 +1,8 @@
 <?php
 
-require_once __DIR__.'/vendor/autoload.php';
-require_once __DIR__.'/Movie.php';
-require_once __DIR__.'/YTS.php';
-require_once __DIR__.'/TransServer.php';
+require_once dirname(__DIR__).'/vendor/autoload.php';
 
-use YTS\YTS;
+use Godsgood33\YTS\YTS;
 
 $yts = new YTS();
 
@@ -15,6 +12,7 @@ $movie = $yts->getMovie($title, $year);
 
 ?>
 
+<!doctype html>
 <html>
 
 <head>
@@ -47,10 +45,17 @@ $movie = $yts->getMovie($title, $year);
         Movie URL:
         <a href='<?php print $movie->url; ?>'>Link</a>
         <br />
+        <?php
+        if ($movie->highestResolution != '4K') {
+            ?>
         Download:
         <input type='checkbox' name='download' id='download' value='1' <?php print $movie->download ? 'checked readonly' : null ?>
         />
         <br />
+        <?php
+        }
+        ?>
+
         Highest Resolution Available:
         <?php print $movie->highestResolutionAvailable; ?>
 

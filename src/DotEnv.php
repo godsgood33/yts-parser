@@ -1,11 +1,9 @@
 <?php
 
-namespace Godsgood33;
+namespace Godsgood33\YTS;
 
 /**
  * Class to retrieve and store environment variables
- *
- * @author Ryan Prather <godsgood33@gmail.com>
  */
 class DotEnv
 {
@@ -16,7 +14,7 @@ class DotEnv
      *
      * @throws RuntimeException
      */
-    public static function load(string $path) :void
+    public static function load(string $path): void
     {
         if (!file_exists($path)) {
             throw new \RuntimeException(sprintf("%s file is not present", $path));

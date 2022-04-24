@@ -1,13 +1,27 @@
 $(function () {
     $('#download').click(updateDownload);
-    $('#search').autocomplete({
-        source: '/query.php',
-        minLength: 3,
-        select: function (e, ui) {
-            log('selected: ' + ui.item.value + ' aka ' + ui.item.id);
-        }
-    });
+    $('.download').click(download);
+    $('#search').change(autoComplete);
 });
+
+function download() {
+    $.ajax('/query.php', {
+        data: {
+            action: 'download',
+            title: $(this).data('title'),
+            year: $(this).data('year')
+        },
+        success: function (res) {
+            if (!res?.torrentName) return;
+            alert('Downloading ' + res.torrentName);
+        },
+        error: function (xhr, error, msg) {
+            console.error(msg);
+        },
+        method: 'post',
+        dataType: 'json'
+    });
+}
 
 function updateDownload() {
     $.ajax('/query.php', {
@@ -30,13 +44,18 @@ function updateDownload() {
 }
 
 function autoComplete() {
+    if ($('#search').val().length <= 2) return;
+
     $.ajax('/query.php', {
         data: {
             action: 'autoComplete',
-            search: $('#search').val()
+            term: $('#search').val()
         },
         success: function (res) {
-            console.debug(res);
+            console.log(res);
+        },
+        error: function (xhr, status, error) {
+            console.error(error);
         },
         method: 'post',
         dataType: 'json'

@@ -1,6 +1,6 @@
 <?php
 
-namespace YTS;
+namespace Godsgood33\YTS;
 
 use SQLite3;
 

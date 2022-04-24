@@ -1,7 +1,8 @@
 <?php
 
-namespace YTS;
+namespace Godsgood33\YTS;
 
+use Exception;
 use Transmission\Client;
 use Transmission\Transmission;
 use Transmission\Model\Status;
@@ -56,22 +57,25 @@ class TransServer
 
     /**
      * Constructor
-     *
-     * @param string $url URL of the Transmission server
-     * @param int $port Port number for the Transmission server
-     * @param string $user User to connect to the Transmission server
-     * @param string $password Password to connect to the Tranmission server
      */
-    public function __construct(
-        string $downloadDir,
-        string $url,
-        int $port = 9091,
-        string $user = null,
-        string $password = null
-    ) {
-        $this->downloadDir = $downloadDir;
+    public function __construct()
+    {
+        $downloadDir = getenv('TRANSMISSION_DOWNLOAD_DIR');
+        if ($downloadDir) {
+            $this->downloadDir = $downloadDir;
+        }
+        $url = getenv('TRANSMISSION_URL');
+        $port = getenv('TRANSMISSION_PORT');
+
+        if (!$url || !$port || !$downloadDir) {
+            throw new Exception('Transmission data not available');
+        }
 
         $this->rpc = new Transmission($url, $port);
+
+        $user = getenv('TRANSMISSION_USER');
+        $password = getenv('TRANSMISSION_PASSWORD');
+
         if ($user && $password) {
             $this->client = new Client($url, $port);
             $this->client->authenticate($user, $password);
@@ -89,23 +93,38 @@ class TransServer
      * Method to check for and start a download
      *
      * @param Movie $movie
+     *
+     * @return Torrent|null
      */
     public function checkForDownload(Movie &$movie)
     {
+        $tor = null;
         if ($movie->uhdTorrent) {
-            $this->add($movie->uhdTorrent);
+            $tor = $this->add($movie->uhdTorrent);
             $movie->download = false;
             $movie->uhdComplete = true;
             $movie->fhdComplete = true;
             $movie->hdComplete = true;
         } elseif ($movie->fhdTorrent) {
-            $this->add($movie->fhdTorrent);
+            $tor = $this->add($movie->fhdTorrent);
             $movie->fhdComplete = true;
             $movie->hdComplete = true;
         } elseif ($movie->hdTorrent) {
-            $this->add($movie->hdTorrent);
+            $tor = $this->add($movie->hdTorrent);
             $movie->hdComplete = true;
         }
+
+        return $tor;
+    }
+
+    /**
+     * Method to retrieve all the torrents
+     *
+     * @return Torrent[]
+     */
+    public function all()
+    {
+        return $this->rpc->all();
     }
 
     /**
@@ -121,10 +140,6 @@ class TransServer
         $this->rpc->stop($tor);
 
         $this->updateDownloadSpace();
-
-        if ($this->freeSpace > $this->downloadSize) {
-            $this->rpc->start($tor);
-        }
 
         return $tor;
     }
@@ -150,15 +165,33 @@ class TransServer
     }
 
     /**
+     * Method to stop a torrent
+     *
+     * @param Torrent $torrent
+     */
+    public function stop(Torrent $torrent)
+    {
+        $this->rpc->stop($torrent);
+    }
+
+    /**
      * Method to get download size
      */
     public function updateDownloadSpace()
     {
         $this->torrents = $this->rpc->all();
         $this->downloadSize = 0;
+        $fs = $this->rpc->getFreeSpace($this->downloadDir);
+        $this->freeSpace = $fs?->getSize();
 
         foreach ($this->torrents as $tor) {
-            if ($tor->getStatus() != Status::STATUS_STOPPED) {
+            if (in_array(
+                $tor->getStatus(),
+                [
+                    Status::STATUS_DOWNLOAD_WAIT,
+                    Status::STATUS_DOWNLOAD
+                ]
+            )) {
                 $this->downloadSize += $tor->getSize();
             }
         }

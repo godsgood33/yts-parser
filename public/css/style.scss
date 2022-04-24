@@ -1,0 +1,46 @@
+body {
+    background-color: #000;
+    color: #fff;
+    font-size: 10pt;
+    word-wrap: normal;
+}
+
+#container {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 90%;
+}
+
+.movie {
+    margin-left: 4px;
+    width: 160px;
+}
+
+a {
+    color: #fff;
+    text-decoration: none;
+}
+
+img {
+    display: block;
+    max-width: 150px;
+}
+
+.havehd {
+    color: red;
+}
+
+.havefhd {
+    color: yellow;
+}
+
+.have4k {
+    color: green;
+}
+
+@media screen and (max-width: 768) {
+    body {
+        flex-direction: column;
+    }
+}
