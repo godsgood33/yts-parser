@@ -13,5 +13,13 @@
         "php": ">=7.2",
         "paquettg/php-html-parser": "^3.1",
         "transmission-php/transmission-php": "^2.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Godsgood33\\YTS\\": "src/"
+        }
+    },
+    "scripts": {
+        "web": "php -S 127.0.0.1 -t public/"
     }
 }
