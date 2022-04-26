@@ -62,6 +62,8 @@ if ($cmd->update) {
                 $imgLink->getAttribute('src')
             );
 
+            $yts->getTorrentLinks($nm);
+
             if ($plex->isConnected()) {
                 $onPlex = $plex->check($nm);
                 
@@ -110,9 +112,8 @@ if ($cmd->download) {
 
         if ($res) {
             $ts->checkForDownload($movie);
+            $yts->updateMovie($movie);
         }
-
-        $yts->updateMovie($movie);
     }
 }
 
@@ -121,6 +122,9 @@ if ($cmd->highestVersion) {
     $movies = $yts->getMovies();
 
     foreach ($movies as $movie) {
+        if ($movie->hdTorrent && $movie->fhdTorrent && $movie->uhdTorrent) {
+            continue;
+        }
         print "Getting resolutions for $movie".PHP_EOL;
         $yts->getTorrentLinks($movie);
 

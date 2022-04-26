@@ -90,9 +90,12 @@ class YTS
      * Method to retrieve the torrent path
      *
      * @param Movie $m
+     *
+     * @return bool
      */
-    public function getTorrentLinks(Movie &$m)
+    public function getTorrentLinks(Movie &$m): bool
     {
+        $ret = false;
         if ($m->uhdComplete) {
             return false;
         }
@@ -122,26 +125,32 @@ class YTS
         foreach ($torrentLinks as $link) {
             if (preg_match("/2160p\.BluRay/", $link->text)) {
                 $uhdLink = $link->getAttribute('href');
-                $m->uhdTorrent = $uhdLink;
             } elseif (preg_match("/1080p\.BluRay/", $link->text)) {
                 $fhdLink = $link->getAttribute('href');
-                $m->fhdTorrent = $fhdLink;
             } elseif (preg_match("/720p\.BluRay/", $link->text)) {
                 $hdLink = $link->getAttribute('href');
-                $m->hdTorrent = $hdLink;
             } elseif (preg_match("/2160p\.WEB/", $link->text) && !$uhdLink) {
                 $uhdLink = $link->getAttribute('href');
-                $m->uhdTorrent = $uhdLink;
             } elseif (preg_match("/1080p\.WEB/", $link->text) && !$fhdLink) {
                 $fhdLink = $link->getAttribute('href');
-                $m->fhdTorrent = $fhdLink;
             } elseif (preg_match("/720p\.WEB/", $link->text) && !$hdLink) {
                 $hdLink = $link->getAttribute('href');
-                $m->hdTorrent = $hdLink;
             }
         }
 
-        return true;
+        if ($uhdLink && $m->uhdTorrent != $uhdLink) {
+            $m->uhdTorrent = $uhdLink;
+        }
+        
+        if ($fhdLink && $m->fhdTorrent != $fhdLink) {
+            $m->fhdTorrent = $fhdLink;
+        }
+        
+        if ($hdLink && $m->hdTorrent != $hdLink) {
+            $m->hdTorrent = $hdLink;
+        }
+
+        return $ret;
     }
 
     /**
@@ -380,7 +389,7 @@ class YTS
      *
      * @return string
      */
-    public function autoComplete(string $search): string
+    public function search(string $search): string
     {
         $sql = "SELECT *
         FROM movies
@@ -388,18 +397,21 @@ class YTS
         `title` LIKE '%{$this->db->escapeString($search)}%'
         OR
         `year` LIKE '%{$this->db->escapeString($search)}%'
-        ORDER BY `title`,`year`";
+        ORDER BY `title`,`year`
+        LIMIT 30";
         $res = $this->db->query($sql);
 
-        $ret = [];
+        $ret = '';
         if (is_a($res, 'SQLite3Result') && $res->numColumns() > 1) {
             while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
-                $res = "{$row['title']} ({$row['year']})";
+                $movie = Movie::fromDB($row);
+
+                $ret .= $movie->getHtml();
             }
         }
 
-        return header('Content-type: application/json').
-            json_encode($ret);
+        return header('Content-type: text/html').
+            $ret;
     }
 
     /**

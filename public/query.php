@@ -2,6 +2,7 @@
 
 require_once dirname(__DIR__).'/vendor/autoload.php';
 
+use Transmission\Model\Status;
 use YTS\YTS;
 use YTS\DotEnv;
 use YTS\TransServer;
@@ -22,12 +23,15 @@ if ($action == 'updateDownload' || $action == 'download') {
         $tor = $ts->checkForDownload($movie);
         $yts->updateMovie($movie);
         $remainingSpace = $ts->freeSpace - ($ts->downloadSize + (int) $tor?->getSize());
-        if ($remainingSpace > 0) {
+        if ($remainingSpace > 0 /*&&
+            (
+                $tor->getStatus() != Status::STATUS_DOWNLOAD || $tor->getStatus() != Status::STATUS_DOWNLOAD_WAIT
+            )*/) {
             $ts->start($tor);
         }
 
         $match = [];
-        $resolution = 'HD';
+        $resolution = '720p';
         if (preg_match("/(720p|1080p|2160p)/", $tor->getName(), $match)) {
             $resolution = $match[1];
         }
@@ -42,6 +46,6 @@ if ($action == 'updateDownload' || $action == 'download') {
         print header('Content-Type: application/json').
             json_encode($ret);
     }
-} elseif (isset($_POST['term']) && $_POST['term']) {
-    print $yts->autoComplete($_POST['term']);
+} elseif ($action == 'search') {
+    print $yts->search($_POST['term']);
 }

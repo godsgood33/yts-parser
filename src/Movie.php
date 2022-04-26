@@ -130,6 +130,26 @@ class Movie
     }
 
     /**
+     * Method to check if a higher resolution version of the movie is available
+     *
+     * @return bool
+     */
+    public function higherVersionAvailable(): bool
+    {
+        if ($this->uhdComplete) {
+            return false;
+        }
+        if ($this->fhdComplete && !$this->uhdTorrent) {
+            return false;
+        }
+        if ($this->hdComplete && (!$this->fhdTorrent || !$this->uhdTorrent)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Method to set resolutions
      *
      * @param array $res
@@ -180,6 +200,39 @@ class Movie
         }
 
         return null;
+    }
+
+    /**
+     * Method to generate html card
+     *
+     * @return string
+     */
+    public function getHtml(): string
+    {
+        $button = null;
+        $class = $this->getClass();
+        $encodedTitle = urlencode($this->title);
+        $encodedYear = urlencode($this->year);
+
+        if ($class != 'have4k') {
+            $button = "<input 
+                type='button' 
+                class='download' 
+                data-title='{$encodedTitle}' 
+                data-year='{$encodedYear}' 
+                value='Download' />";
+        }
+        $ret = "<div class='movie'>
+            <a href='/details.php?title={$encodedTitle}".
+                "&year={$encodedYear}' ".
+                "target='_blank'>
+                <img src='{$this->imgUrl}'/>
+            </a><br />
+            <span class='{$class}'>{$this->title} ({$this->year})</span><br />
+            {$button}
+        </div>";
+
+        return $ret;
     }
 
     /**

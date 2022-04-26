@@ -1,7 +1,7 @@
 $(function () {
     $('#download').click(updateDownload);
     $('.download').click(download);
-    $('#search').change(autoComplete);
+    $('#search').keypress(search);
 });
 
 function download() {
@@ -43,21 +43,24 @@ function updateDownload() {
     });
 }
 
-function autoComplete() {
-    if ($('#search').val().length <= 2) return;
+function search(event) {
+    if (event.which != 13) return;
+    if ($('#search').val().length < 2) return;
 
     $.ajax('/query.php', {
         data: {
-            action: 'autoComplete',
+            action: 'search',
             term: $('#search').val()
         },
         success: function (res) {
-            console.log(res);
+            $('#container').children().remove();
+            $('#container').append(res);
+            $('.download').click(download);
         },
         error: function (xhr, status, error) {
             console.error(error);
         },
         method: 'post',
-        dataType: 'json'
+        dataType: 'html'
     });
 }

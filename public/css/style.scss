@@ -12,6 +12,11 @@ body {
     width: 90%;
 }
 
+#search-container,
+#pager {
+    display: inline-block;
+}
+
 .movie {
     margin-left: 4px;
     width: 160px;
@@ -43,4 +48,28 @@ img {
     body {
         flex-direction: column;
     }
+}
+
+.pageButtons {
+    background-color: #c62d1f;
+    border-radius: 12px;
+    border: 1px solid #d02718;
+    display: inline-block;
+    cursor: pointer;
+    color: #ffffff;
+    font-family: Arial;
+    font-size: 15px;
+    font-weight: bold;
+    padding: 5px 12px;
+    text-decoration: none;
+    text-shadow: 0px 1px 0px #810e05;
+}
+
+.pageButtons:hover {
+    background-color: #f24437;
+}
+
+.pageButtons:active {
+    position: relative;
+    top: 1px;
 }
