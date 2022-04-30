@@ -40,7 +40,7 @@ $movie = $yts->getMovie($title, $year);
             value='<?php print urlencode($movie->year); ?>' />
 
         Highest quality:
-        <?php print $movie->highestResolution; ?>
+        <?php print $movie->highestVersion(); ?>
         <br />
         Movie URL:
         <a href='<?php print $movie->url; ?>'>Link</a>
@@ -53,7 +53,7 @@ $movie = $yts->getMovie($title, $year);
         ?>
 
         Highest Resolution Available:
-        <?php print $movie->highestResolutionAvailable; ?>
+        <?php print $movie->highestVersionAvailable(); ?>
 
     </form>
 

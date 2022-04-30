@@ -1,10 +1,32 @@
 $(function () {
     $('#download').click(updateDownload);
-    $('.download').click(download);
+    $('.download').on('click', function () {
+        var btn = $(this);
+        $.ajax('/query.php', {
+            data: {
+                action: 'download',
+                title: $(this).data('title'),
+                year: $(this).data('year')
+            },
+            success: function (res) {
+                if (!res?.torrentName) return;
+                alert('Downloading ' + res.torrentName);
+                $(btn).parent().find('span').removeClass('have4k havefhd havehd');
+                $(btn).parent().find('span').addClass(res.class);
+                $(btn).remove();
+            },
+            error: function (xhr, error, msg) {
+                console.error(msg);
+            },
+            method: 'post',
+            dataType: 'json'
+        });
+    });
     $('#search').keypress(search);
 });
 
-function download() {
+function download(btn) {
+    var text = $(btn);
     $.ajax('/query.php', {
         data: {
             action: 'download',
@@ -12,6 +34,7 @@ function download() {
             year: $(this).data('year')
         },
         success: function (res) {
+            console.log(text);
             if (!res?.torrentName) return;
             alert('Downloading ' + res.torrentName);
         },
@@ -32,7 +55,7 @@ function updateDownload() {
             download: $('#download').is(':checked')
         },
         success: function (res) {
-            console.debug(res);
+            console.log(res);
         },
         error: function (xhr, error, msg) {
             console.error(msg);

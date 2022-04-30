@@ -85,27 +85,16 @@ class Movie
     public bool $uhdComplete;
 
     /**
-     * Stores the common name for the highest resolution on Plex
-     *
-     * @var string
-     */
-    public ?string $highestResolution;
-
-    /**
-     * Stores the common name for the highest resolution available for download
-     *
-     * @var string
-     */
-    public ?string $highestResolutionAvailable;
-
-    /**
      * Constructor
      *
      * @param string $title
      * @param string $url
      */
-    public function __construct(string $title, string $url, ?string $imgUrl)
-    {
+    public function __construct(
+        string $title,
+        string $url,
+        ?string $imgUrl
+    ) {
         $this->title = $title;
         $year = substr($url, -4);
         $this->year = (int) $year;
@@ -134,19 +123,55 @@ class Movie
      *
      * @return bool
      */
-    public function higherVersionAvailable(): bool
+    public function betterVersionAvailable(): bool
     {
         if ($this->uhdComplete) {
             return false;
         }
-        if ($this->fhdComplete && !$this->uhdTorrent) {
+        if ($this->fhdComplete && empty($this->uhdTorrent)) {
             return false;
         }
-        if ($this->hdComplete && (!$this->fhdTorrent || !$this->uhdTorrent)) {
+        if ($this->hdComplete && empty($this->fhdTorrent) && empty($this->uhdTorrent)) {
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * Method to get the highest version
+     *
+     * @return string
+     */
+    public function highestVersion(): ?string
+    {
+        $ret = null;
+        if ($this->uhdComplete) {
+            $ret = '4K';
+        } elseif ($this->fhdComplete) {
+            $ret = 'FHD';
+        } elseif ($this->hdComplete) {
+            $ret = 'HD';
+        }
+
+        return $ret;
+    }
+
+    /**
+     * Method to determine if there is a better version to download
+     *
+     * @return string
+     */
+    public function highestVersionAvailable(): string
+    {
+        $ret = 'HD';
+        if (!$this->uhdComplete && $this->uhdTorrent) {
+            $ret = 'UHD';
+        } elseif (!$this->fhdComplete && $this->fhdTorrent) {
+            $ret = 'FHD';
+        }
+
+        return $ret;
     }
 
     /**
@@ -214,7 +239,7 @@ class Movie
         $encodedTitle = urlencode($this->title);
         $encodedYear = urlencode($this->year);
 
-        if ($class != 'have4k') {
+        if ($class != 'have4k' && $this->betterVersionAvailable()) {
             $button = "<input 
                 type='button' 
                 class='download' 
@@ -233,6 +258,22 @@ class Movie
         </div>";
 
         return $ret;
+    }
+
+    /**
+     * Method to merge two movies together
+     *
+     * @param Movie $m
+     */
+    public function mergeMovie(Movie $m)
+    {
+        $this->hdTorrent = $m->hdTorrent;
+        $this->hdComplete = $m->hdComplete;
+        $this->fhdTorrent = $m->fhdTorrent;
+        $this->fhdComplete = $m->fhdComplete;
+        $this->uhdTorrent = $m->uhdTorrent;
+        $this->uhdComplete = $m->uhdComplete;
+        $this->download = $m->download;
     }
 
     /**
@@ -255,25 +296,6 @@ class Movie
         $self->uhdComplete = (bool) $sc['complete2160'];
         $self->download = (bool) $sc['download'];
 
-        $self->highestResolution = null;
-        $self->highestResolutionAvailable = null;
-        
-        if ($self->uhdComplete) {
-            $self->highestResolution = '4K';
-        } elseif ($self->fhdComplete) {
-            $self->highestResolution = 'FHD';
-        } elseif ($self->hdComplete) {
-            $self->highestResolution = 'HD';
-        }
-
-        if ($self->uhdTorrent) {
-            $self->highestResolutionAvailable = '4K';
-        } elseif ($self->fhdTorrent) {
-            $self->highestResolutionAvailable = 'FHD';
-        } elseif ($self->hdTorrent) {
-            $self->highestResolutionAvailable = 'HD';
-        }
-
         return $self;
     }
 
@@ -289,13 +311,13 @@ class Movie
             'year' => $this->year,
             'url' => $this->url,
             'imgUrl' => $this->imgUrl,
-            'download' => $this->download,
+            'download' => ($this->download ? 1 : 0),
             'torrent720' => $this->hdTorrent,
-            'complete720' => $this->hdComplete,
+            'complete720' => ($this->hdComplete ? 1 : 0),
             'torrent1080' => $this->fhdTorrent,
-            'complete1080' => $this->fhdComplete,
+            'complete1080' => ($this->fhdComplete ? 1 : 0),
             'torrent2160' => $this->uhdTorrent,
-            'complete2160' => $this->uhdComplete,
+            'complete2160' => ($this->uhdComplete ? 1 : 0),
         ];
     }
 
@@ -310,13 +332,13 @@ class Movie
         $arr = [
             'url' => $this->url,
             'imgUrl' => $this->imgUrl,
+            'download' => ($this->download ? 1 : 0),
             'torrent720' => $this->hdTorrent,
-            'complete720' => $this->hdComplete,
+            'complete720' => ($this->hdComplete ? 1 : 0),
             'torrent1080' => $this->fhdTorrent,
-            'complete1080' => $this->fhdComplete,
+            'complete1080' => ($this->fhdComplete ? 1 : 0),
             'torrent2160' => $this->uhdTorrent,
-            'complete2160' => $this->uhdComplete,
-            'download' => $this->download,
+            'complete2160' => ($this->uhdComplete ? 1 : 0),
         ];
 
         foreach ($arr as $key => $val) {
@@ -341,13 +363,13 @@ class Movie
             'year' => $this->year,
             'url' => $this->url,
             'imgUrl' => $this->imgUrl,
+            'download' => ($this->download ? 1 : 0),
             'torrent720' => $this->hdTorrent,
-            'complete720' => $this->hdComplete,
+            'complete720' => ($this->hdComplete ? 1 : 0),
             'torrent1080' => $this->fhdTorrent,
-            'complete1080' => $this->fhdComplete,
+            'complete1080' => ($this->fhdComplete ? 1 : 0),
             'torrent2160' => $this->uhdTorrent,
-            'complete2160' => $this->uhdComplete,
-            'download' => $this->download,
+            'complete2160' => ($this->uhdComplete ? 1 : 0),
         ];
     }
 }

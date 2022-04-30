@@ -36,11 +36,19 @@ if ($action == 'updateDownload' || $action == 'download') {
             $resolution = $match[1];
         }
 
+        $class = 'havehd';
+        if ($resolution == '1080p') {
+            $class = 'havefhd';
+        } elseif ($resolution == '2160p') {
+            $class = 'have4k';
+        }
+
         $ret = [
             'remainingSpace' => $remainingSpace,
             'humanReadableSpace' => $ts->humanReadableSize($remainingSpace),
             'torrentName' => $tor->getName(),
-            'resolution' => $resolution
+            'resolution' => $resolution,
+            'class' => $class,
         ];
 
         print header('Content-Type: application/json').

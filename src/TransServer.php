@@ -3,6 +3,7 @@
 namespace YTS;
 
 use Exception;
+use RuntimeException;
 use Transmission\Client;
 use Transmission\Transmission;
 use Transmission\Model\Status;
@@ -101,17 +102,23 @@ class TransServer
         $tor = null;
         if ($movie->uhdTorrent) {
             $tor = $this->add($movie->uhdTorrent);
-            $movie->download = false;
-            $movie->uhdComplete = true;
-            $movie->fhdComplete = true;
-            $movie->hdComplete = true;
+            if (is_a($tor, 'Transmission\Model\Torrrent')) {
+                $movie->download = false;
+                $movie->uhdComplete = true;
+                $movie->fhdComplete = true;
+                $movie->hdComplete = true;
+            }
         } elseif ($movie->fhdTorrent) {
             $tor = $this->add($movie->fhdTorrent);
-            $movie->fhdComplete = true;
-            $movie->hdComplete = true;
+            if (is_a($tor, 'Transmission\Model\Torrent')) {
+                $movie->fhdComplete = true;
+                $movie->hdComplete = true;
+            }
         } elseif ($movie->hdTorrent) {
             $tor = $this->add($movie->hdTorrent);
-            $movie->hdComplete = true;
+            if (is_a($tor, 'Transmission\Model\Torrrent')) {
+                $movie->hdComplete = true;
+            }
         }
 
         return $tor;
@@ -132,11 +139,16 @@ class TransServer
      *
      * @param string $url
      *
-     * @return Torrent
+     * @return Torrent|bool
      */
-    public function add(string $url): Torrent
+    public function add(string $url): Torrent|bool
     {
-        $tor = $this->rpc->add($url, false, $this->downloadDir);
+        try {
+            $tor = $this->rpc->add($url, false, $this->downloadDir);
+        } catch (RuntimeException $e) {
+            print "Failed to add torrent".PHP_EOL;
+            return false;
+        }
         $this->rpc->stop($tor);
 
         $this->updateDownloadSpace();

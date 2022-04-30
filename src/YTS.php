@@ -97,7 +97,7 @@ class YTS
     {
         $ret = false;
         if ($m->uhdComplete) {
-            return false;
+            return $ret;
         }
 
         try {
@@ -148,6 +148,10 @@ class YTS
         
         if ($hdLink && $m->hdTorrent != $hdLink) {
             $m->hdTorrent = $hdLink;
+        }
+
+        if ($m->betterVersionAvailable()) {
+            $ret = true;
         }
 
         return $ret;
@@ -291,10 +295,31 @@ class YTS
             "SELECT *
             FROM `movies`
             WHERE
-            `download` = '1'
+            (`complete2160` IS NULL OR `complete2160` = '' OR `complete2160` = 0)
             AND
-            `complete2160` = '0'
-            ORDER BY `title`,`year`"
+            `download` = 1
+            AND
+            LENGTH(`torrent2160`) > 0
+            ORDER BY
+            `title`,`year`"
+        );
+
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $movie = Movie::fromDB($row);
+            $movies[] = $movie;
+        }
+
+        $res = $this->db->query(
+            "SELECT *
+            FROM `movies`
+            WHERE
+            (`complete1080` IS NULL OR `complete1080` = '' OR `complete1080` = 0)
+            AND
+            `download` = 1
+            AND
+            LENGTH(`torrent1080`) > 0
+            ORDER BY
+            `title`,`year`"
         );
 
         while ($row = $res->fetchArray(SQLITE3_ASSOC)) {

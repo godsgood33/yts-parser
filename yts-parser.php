@@ -62,6 +62,11 @@ if ($cmd->update) {
                 $imgLink->getAttribute('src')
             );
 
+            if ($yts->isMoviePresent($nm)) {
+                $dbMovie = $yts->getMovie($title, $nm->year);
+                $nm->mergeMovie($dbMovie);
+            }
+            
             $yts->getTorrentLinks($nm);
 
             if ($plex->isConnected()) {
@@ -102,17 +107,20 @@ if ($cmd->download) {
     $movies = $yts->getDownloadableMovies();
     $ts = new TransServer();
 
-    if (!is_countable($movies)) {
+    if (!is_countable($movies) && count($movies)) {
         die("No movies found");
     }
 
     foreach ($movies as $movie) {
-        print "Checking for {$movie}".PHP_EOL;
-        $res = $yts->getTorrentLinks($movie);
+        /** @var Movie $movie */
+        print "Downloading {$movie->highestResolutionAvailable} of $movie".PHP_EOL;
 
-        if ($res) {
-            $ts->checkForDownload($movie);
-            $yts->updateMovie($movie);
+        if ($movie->higherVersionAvailable()) {
+            $res = $ts->checkForDownload($movie);
+
+            if (is_a($res, 'Transmission/Model/Torrent')) {
+                $yts->updateMovie($movie);
+            }
         }
     }
 }
@@ -120,14 +128,32 @@ if ($cmd->download) {
 if ($cmd->highestVersion) {
     $yts = new YTS();
     $movies = $yts->getMovies();
+    print "Updating resolutions".PHP_EOL;
+    print '#';
+    $alpha = [
+        '','#','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'
+    ];
+    $currentIndex = 0;
+    $idx = 0;
 
     foreach ($movies as $movie) {
         if ($movie->hdTorrent && $movie->fhdTorrent && $movie->uhdTorrent) {
             continue;
         }
-        print "Getting resolutions for $movie".PHP_EOL;
-        $yts->getTorrentLinks($movie);
 
+        if (substr($movie->title, 0, 1) == $alpha[$currentIndex]) {
+            print $alpha[$currentIndex];
+            $currentIndex++;
+        } else {
+            print ".";
+        }
+
+        if ($idx % 100 == 0) {
+            print PHP_EOL;
+        }
+
+        $yts->getTorrentLinks($movie);
         $yts->updateMovie($movie);
+        $idx++;
     }
 }
