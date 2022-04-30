@@ -255,7 +255,7 @@ class YTS
         $res = $this->db->query(
             "SELECT *
             FROM `movies`
-            ORDER BY `title`,`year`
+            ORDER BY REPLACE(`title`, 'The ', ''),`year`
             LIMIT {$offset},{$PAGE_COUNT}"
         );
 

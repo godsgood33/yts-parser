@@ -113,9 +113,9 @@ if ($cmd->download) {
 
     foreach ($movies as $movie) {
         /** @var Movie $movie */
-        print "Downloading {$movie->highestResolutionAvailable} of $movie".PHP_EOL;
+        print "Downloading {$movie->highestVersionAvailable()} of $movie".PHP_EOL;
 
-        if ($movie->higherVersionAvailable()) {
+        if ($movie->betterVersionAvailable()) {
             $res = $ts->checkForDownload($movie);
 
             if (is_a($res, 'Transmission/Model/Torrent')) {

@@ -23,28 +23,8 @@ $(function () {
         });
     });
     $('#search').keypress(search);
-});
 
-function download(btn) {
-    var text = $(btn);
-    $.ajax('/query.php', {
-        data: {
-            action: 'download',
-            title: $(this).data('title'),
-            year: $(this).data('year')
-        },
-        success: function (res) {
-            console.log(text);
-            if (!res?.torrentName) return;
-            alert('Downloading ' + res.torrentName);
-        },
-        error: function (xhr, error, msg) {
-            console.error(msg);
-        },
-        method: 'post',
-        dataType: 'json'
-    });
-}
+});
 
 function updateDownload() {
     $.ajax('/query.php', {

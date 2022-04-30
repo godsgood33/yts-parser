@@ -22,4 +22,8 @@ If you have a Plex media server you can either copy the library (if it's on a di
 
 ## Web Server
 
-If you are using a recent version of PHP you can run a PHP web server to see what was retrieved.  From the main directory execute...`php -S {ip}:{port} -t public/`, with composer you can run `composer web` to start a web server on the localhost:8080.  Then you can open a browser and navigate to that IP and port.  The page displayed will be an alphabetic listing of all the movies retrieved.  There are small buttons at the top that you can use to navigate through the listing.  If you click on one of the art images it will open a new tab with the specifics of that title.  To the right of the artwork there is a "download" checkbox.  If you click it, the system will retrieve the torrent links and kick off a download if you have a Transmission Server set up.
+If you are using a recent version of PHP you can run a PHP web server to see what was retrieved.  From the main directory execute...`php -S {ip}:{port} -t public/`, with composer you can run `composer web` to start a web server on the localhost:8080.  Then you can open a browser and navigate to that IP and port.  The page displayed will be an alphabetic listing of all movies retrieved.  Movie titles highlighted red means you have a 720p version in Plex, yellow highlighting is a 1080p version, and green is a 4k version.
+
+Right next to the search box, there is a red or green circle.  If it is green that means that this is able to communicate with the Transmission server.  You can then click the `Download` button to have the system retrieve the torrent link from the movie listing on yts and send that to the Transmission server.  It will automatically start downloading the movie ```(so make sure your Transmission server is on a VPN)```.
+
+NOTE: If you have an as good or better version than what is on the site, the download button will not appear.
