@@ -1,29 +1,7 @@
 $(function () {
     $('#download').click(updateDownload);
-    $('.download').on('click', function () {
-        var btn = $(this);
-        $.ajax('/query.php', {
-            data: {
-                action: 'download',
-                title: $(this).data('title'),
-                year: $(this).data('year')
-            },
-            success: function (res) {
-                if (!res?.torrentName) return;
-                alert('Downloading ' + res.torrentName);
-                $(btn).parent().find('span').removeClass('have4k havefhd havehd');
-                $(btn).parent().find('span').addClass(res.class);
-                $(btn).remove();
-            },
-            error: function (xhr, error, msg) {
-                console.error(msg);
-            },
-            method: 'post',
-            dataType: 'json'
-        });
-    });
+    $('.download').click(download);
     $('#search').keypress(search);
-
 });
 
 function updateDownload() {
@@ -65,5 +43,28 @@ function search(event) {
         },
         method: 'post',
         dataType: 'html'
+    });
+}
+
+function download() {
+    var btn = $(this);
+    $.ajax('/query.php', {
+        data: {
+            action: 'download',
+            title: $(this).data('title'),
+            year: $(this).data('year')
+        },
+        success: function (res) {
+            if (!res?.torrentName) return;
+            alert('Downloading ' + res.torrentName);
+            $(btn).parent().find('span').removeClass('have4k havefhd havehd');
+            $(btn).parent().find('span').addClass(res.class);
+            $(btn).remove();
+        },
+        error: function (xhr, error, msg) {
+            console.error(msg);
+        },
+        method: 'post',
+        dataType: 'json'
     });
 }

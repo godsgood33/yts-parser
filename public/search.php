@@ -8,7 +8,7 @@ use YTS\DotEnv;
 DotEnv::load(dirname(__DIR__).'/.env');
 $yts = new YTS();
 $page = $_GET['page'] ?? 1;
-$movies = $yts->getMoviesByPage($page);
+$movies = $yts->getNewerMovies($page);
 ?>
 
 <!doctype html>
@@ -25,7 +25,6 @@ $movies = $yts->getMoviesByPage($page);
 </head>
 
 <body>
-
     <div>
         <div id='search-container'>
             <input type='text' name='search' id='search' />
@@ -40,11 +39,11 @@ $movies = $yts->getMoviesByPage($page);
 
         <div id='pager'>
             <?php
-            print "<a href='/' class='pageButtons'>&lt;&lt;</a>&nbsp;";
+            print "<a href='/search.php' class='pageButtons'>&lt;&lt;</a>&nbsp;";
             if ($page > 1) {
-                print "<a class='pageButtons' href='/?page=".($page-1)."'>&lt;</a>&nbsp;";
+                print "<a class='pageButtons' href='/search.php?page=".($page-1)."'>&lt;</a>&nbsp;";
             }
-            print "<a class='pageButtons' href='/?page=".($page+1)."'>&gt;</a>";
+            print "<a class='pageButtons' href='/search.php?page=".($page+1)."'>&gt;</a>";
             ?>
         </div>
 

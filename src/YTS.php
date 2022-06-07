@@ -183,11 +183,8 @@ class YTS
     public function isMoviePresent(Movie $m): bool
     {
         $res = $this->getMovie($m->title, $m->year);
-
-        if (is_a($res, 'YTS/Movie')) {
-            return isset($res['title']);
-        }
-        return false;
+        
+        return is_a($res, 'YTS\Movie');
     }
 
     /**
@@ -219,25 +216,25 @@ class YTS
      */
     public function getMovie(string $title, int $year)
     {
-        $row = null;
+        $this->db->enableExceptions(true);
         $res = $this->db->query(
             "SELECT *
             FROM `movies`
             WHERE
             `title` = '{$this->db->escapeString($title)}'
             AND
-            `year` = '{$this->db->escapeString($year)}'"
+            `year` = {$year}"
         );
 
-        if (is_a($res, 'SQLite3Result')) {
-            $row = $res->fetchArray(SQLITE3_ASSOC);
+        if (is_bool($res)) {
+            return false;
         }
+
+        $row = $res->fetchArray(SQLITE3_ASSOC);
 
         if ($row) {
             return Movie::fromDB($row);
         }
-
-        return false;
     }
 
     /**
@@ -440,6 +437,42 @@ class YTS
     }
 
     /**
+     * Method to find movies that have a higher resolution version available for download
+     *
+     * @param int $pageNo
+     *
+     * @return array
+     */
+    public function getNewerMovies(int $pageNo): array
+    {
+        $ret = [];
+        $PAGE_COUNT = self::PAGE_COUNT;
+        $offset = $pageNo * self::PAGE_COUNT;
+        $res = $this->db->query(
+            "SELECT * FROM `movies`
+            WHERE
+            `download` = 1
+            AND
+            ((`torrent1080` != '' AND `complete1080` = 0)
+            OR
+            (`torrent2160` != '' AND `complete2160` = 0))
+            ORDER BY REPLACE(`title`, 'The ', ''), `year`
+            LIMIT {$offset},{$PAGE_COUNT}"
+        );
+
+        if (is_bool($res)) {
+            return $ret;
+        }
+
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $movie = Movie::fromDB($row);
+            $ret[] = $movie;
+        }
+
+        return $ret;
+    }
+
+    /**
      * Method to create database tables in schema
      */
     public static function install()
@@ -491,7 +524,8 @@ class YTS
     {
         $ret = new stdClass();
         $arr = getopt('h', [
-            'install::', 'update::', 'download::', 'page:', 'count:', 'plex:', 'help::', 'highestVersion::'
+            'install::', 'update::', 'download::', 'page:', 'count:', 'plex:', 'help::', 'highestVersion::',
+            'torrentLinks::'
         ]);
 
         $ret->showHelp = (isset($arr['h']) || isset($arr['help']));
@@ -509,6 +543,7 @@ class YTS
         $ret->plexDB = (
             isset($arr['plex']) && $arr['plex'] && file_exists($arr['plex']) ? $arr['plex'] : null
         );
+        $ret->torrentLinks = isset($arr['torrentLinks']);
 
         return $ret;
     }
@@ -519,12 +554,14 @@ class YTS
     public static function usage()
     {
         print <<<EOF
-This script is used to scrape yts.mx website for all movies.  You can then set a flag to have it retrieve the torrent links and download them with a Transmission server.
+This script is used to scrape yts.mx website for all movies.  You can then set a flag to have it retrieve the torrent
+links and download them with a Transmission server.
 
 --install               Flag to call first to create the required tables
 --update                Flag to start the scraping
 --highestVersion        Flag to scrap each movie for the torrent links and get the highest quality version available
 --download              Flag to start the download process
+--torrentLinks          Flag to retrieve the torrent links from each title page
 --page={number}         What page do you want to start on
 --count={number}        How many pages do you want to read
 --plex={Plex library}   Flag to point to a Plex library

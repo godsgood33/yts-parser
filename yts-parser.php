@@ -62,12 +62,17 @@ if ($cmd->update) {
                 $imgLink->getAttribute('src')
             );
 
-            if ($yts->isMoviePresent($nm)) {
-                $dbMovie = $yts->getMovie($title, $nm->year);
+            $dbMovie = $yts->getMovie($nm->title, $nm->year);
+            $movieExists = false;
+
+            if (is_a($dbMovie, 'YTS\Movie')) {
                 $nm->mergeMovie($dbMovie);
+                $movieExists = true;
             }
             
-            $yts->getTorrentLinks($nm);
+            if ($cmd->torrentLinks) {
+                $yts->getTorrentLinks($nm);
+            }
 
             if ($plex->isConnected()) {
                 $onPlex = $plex->check($nm);
@@ -81,14 +86,14 @@ if ($cmd->update) {
                 $nm->hdTorrent ? $hdMovies++ : null;
             }
 
-            if (!$yts->isMoviePresent($nm)) {
-                print "Adding {$nm}".PHP_EOL;
-                $res = $yts->insertMovie($nm);
-                $newMovie++;
-            } else {
+            if ($movieExists) {
                 print "Updating {$nm}".PHP_EOL;
                 $res = $yts->updateMovie($nm);
                 $existingMovie++;
+            } else {
+                print "Adding {$nm}".PHP_EOL;
+                $res = $yts->insertMovie($nm);
+                $newMovie++;
             }
         }
 
@@ -118,7 +123,7 @@ if ($cmd->download) {
         if ($movie->betterVersionAvailable()) {
             $res = $ts->checkForDownload($movie);
 
-            if (is_a($res, 'Transmission/Model/Torrent')) {
+            if (is_a($res, 'Transmission\Model\Torrent')) {
                 $yts->updateMovie($movie);
             }
         }
