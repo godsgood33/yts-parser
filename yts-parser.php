@@ -62,12 +62,24 @@ if ($cmd->update) {
                 $imgLink->getAttribute('src')
             );
 
-            $dbMovie = $yts->getMovie($nm->title, $nm->year);
             $movieExists = false;
 
-            if (is_a($dbMovie, 'YTS\Movie')) {
-                $nm->mergeMovie($dbMovie);
+            if ($yts->isMoviePresent($nm)) {
+                $nm = $yts->getMovie($nm->title, $nm->year);
+
+                if ($nm->retrieved) {
+                    continue;
+                }
+
+                $nm->url = $movie->getAttribute('href');
+                $nm->imgUrl = $imgLink->getAttribute('src');
+                $nm->retrieved = true;
+                $yts->saveMovie($nm);
+
                 $movieExists = true;
+            } else {
+                $nm->retrieved = true;
+                $yts->addMovie($nm);
             }
             
             if ($cmd->torrentLinks) {
@@ -143,6 +155,10 @@ if ($cmd->highestVersion) {
 
     foreach ($movies as $movie) {
         if ($movie->hdTorrent && $movie->fhdTorrent && $movie->uhdTorrent) {
+            continue;
+        }
+
+        if ($movie->uhdComplete) {
             continue;
         }
 

@@ -47,6 +47,13 @@ class YTS
      * @var bool
      */
     private bool $transmissionSvrConnected;
+
+    /**
+     * Array to store all movies in the database
+     *
+     * @var array
+     */
+    private array $movies;
     
     /**
      * Constructor
@@ -55,6 +62,7 @@ class YTS
     {
         $this->dom = new Dom();
         $this->db = new SQLite3(dirname(__DIR__).'/movies.db');
+        $this->movies = $this->getMovies();
 
         $this->transmissionSvrConnected = self::ping(
             getenv('TRANSMISSION_URL'),
@@ -182,9 +190,41 @@ class YTS
      */
     public function isMoviePresent(Movie $m): bool
     {
-        $res = $this->getMovie($m->title, $m->year);
-        
-        return is_a($res, 'YTS\Movie');
+        return isset($this->movies[$m->title][$m->year]);
+    }
+
+    /**
+     * Method to add a movie to the array
+     *
+     * @param Movie $m
+     *
+     * @return bool
+     */
+    public function addMovie(Movie $m): bool
+    {
+        if (!isset($this->movies[$m->title][$m->year])) {
+            $this->movies[$m->title][$m->year] = $m;
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Method to save a movie in the movie array
+     *
+     * @param Movie $m
+     *
+     * @return bool
+     */
+    public function saveMovie(Movie $m): bool
+    {
+        if (isset($this->movies[$m->title][$m->year])) {
+            $this->movies[$m->title][$m->year] = $m;
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -196,11 +236,11 @@ class YTS
     {
         $ret = [];
         $res = $this->db->query(
-            "SELECT * FROM `movies` ORDER BY `title`,`year`"
+            "SELECT * FROM `movies` ORDER BY REPLACE(`title`, 'The ', ''),`year`"
         );
         while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
             $movie = Movie::fromDB($row);
-            $ret[] = $movie;
+            $ret[$movie->title][$movie->year] = $movie;
         }
 
         return $ret;
@@ -216,25 +256,11 @@ class YTS
      */
     public function getMovie(string $title, int $year)
     {
-        $this->db->enableExceptions(true);
-        $res = $this->db->query(
-            "SELECT *
-            FROM `movies`
-            WHERE
-            `title` = '{$this->db->escapeString($title)}'
-            AND
-            `year` = {$year}"
-        );
-
-        if (is_bool($res)) {
-            return false;
+        if (isset($this->movies[$title][$year])) {
+            return $this->movies[$title][$year];
         }
 
-        $row = $res->fetchArray(SQLITE3_ASSOC);
-
-        if ($row) {
-            return Movie::fromDB($row);
-        }
+        return false;
     }
 
     /**

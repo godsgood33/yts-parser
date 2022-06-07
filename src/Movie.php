@@ -85,6 +85,13 @@ class Movie
     public bool $uhdComplete;
 
     /**
+     * Variable to store if the movie has been retrieved
+     *
+     * @var bool
+     */
+    public bool $retrieved;
+
+    /**
      * Constructor
      *
      * @param string $title
@@ -102,6 +109,7 @@ class Movie
         $this->imgUrl = $imgUrl;
         $this->download = 0;
 
+        $this->retrieved = 0;
         $this->hdTorrent = null;
         $this->hdComplete = 0;
         $this->fhdTorrent = null;
@@ -332,13 +340,13 @@ class Movie
         $arr = [
             'url' => $this->url,
             'imgUrl' => $this->imgUrl,
-            'download' => ($this->download ? 1 : 0),
+            'download' => ($this->download ? '1' : '0'),
             'torrent720' => $this->hdTorrent,
-            'complete720' => ($this->hdComplete ? 1 : 0),
+            'complete720' => ($this->hdComplete ? '1' : '0'),
             'torrent1080' => $this->fhdTorrent,
-            'complete1080' => ($this->fhdComplete ? 1 : 0),
+            'complete1080' => ($this->fhdComplete ? '1' : '0'),
             'torrent2160' => $this->uhdTorrent,
-            'complete2160' => ($this->uhdComplete ? 1 : 0),
+            'complete2160' => ($this->uhdComplete ? '1' : '0'),
         ];
 
         foreach ($arr as $key => $val) {

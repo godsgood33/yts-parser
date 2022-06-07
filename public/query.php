@@ -2,7 +2,6 @@
 
 require_once dirname(__DIR__).'/vendor/autoload.php';
 
-use Transmission\Model\Status;
 use YTS\YTS;
 use YTS\DotEnv;
 use YTS\TransServer;
@@ -21,7 +20,6 @@ if ($action == 'updateDownload' || $action == 'download') {
         $ts = new TransServer();
         $movie = $yts->getMovie($title, $year);
         $tor = $ts->checkForDownload($movie);
-        $yts->updateMovie($movie);
         $remainingSpace = $ts->freeSpace - ($ts->downloadSize + (int) $tor?->getSize());
         if ($remainingSpace > 0 /*&&
             (
@@ -38,10 +36,17 @@ if ($action == 'updateDownload' || $action == 'download') {
 
         $class = 'havehd';
         if ($resolution == '1080p') {
+            $movie->hdComplete = true;
+            $movie->fhdComplete = true;
             $class = 'havefhd';
         } elseif ($resolution == '2160p') {
+            $movie->hdComplete = true;
+            $movie->fhdComplete = true;
+            $movie->uhdComplete = true;
             $class = 'have4k';
         }
+
+        $yts->updateMovie($movie);
 
         $ret = [
             'remainingSpace' => $remainingSpace,
