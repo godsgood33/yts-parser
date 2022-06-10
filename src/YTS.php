@@ -3,7 +3,6 @@
 namespace YTS;
 
 use SQLite3;
-use stdClass;
 use PHPHtmlParser\Dom;
 use GuzzleHttp\Exception\ConnectException;
 use YTS\Movie;
@@ -539,39 +538,6 @@ class YTS
             return true;
         }
         return false;
-    }
-
-    /**
-     * Method to get the command line parameters and return an object with them
-     *
-     * @return stdClass
-     */
-    public static function getCommandParameters()
-    {
-        $ret = new stdClass();
-        $arr = getopt('h', [
-            'install::', 'update::', 'download::', 'page:', 'count:', 'plex:', 'help::', 'highestVersion::',
-            'torrentLinks::'
-        ]);
-
-        $ret->showHelp = (isset($arr['h']) || isset($arr['help']));
-
-        $ret->install = isset($arr['install']);
-        $ret->update = isset($arr['update']);
-        $ret->download = isset($arr['download']);
-        $ret->highestVersion = isset($arr['highestVersion']);
-        $ret->startPage = (
-            isset($arr['page']) && is_numeric($arr['page']) && $arr['page'] > 0 ? $arr['page'] : 1
-        );
-        $ret->pageCount = (
-            isset($arr['count']) && is_numeric($arr['count']) && $arr['count'] > 0 ? $arr['count'] : null
-        );
-        $ret->plexDB = (
-            isset($arr['plex']) && $arr['plex'] && file_exists($arr['plex']) ? $arr['plex'] : null
-        );
-        $ret->torrentLinks = isset($arr['torrentLinks']);
-
-        return $ret;
     }
 
     /**
