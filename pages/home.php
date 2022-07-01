@@ -23,7 +23,7 @@ $movies = $yts->getMoviesByPage($page);
 <body>
 
     <div>
-        <a href='/new-movies/'>New Movies</a>
+        <a class='pageButtons' href='/new-movies/'>New Movies</a>
     </div>
 
     <div>

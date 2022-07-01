@@ -22,7 +22,7 @@ $movies = $yts->getNewerMovies($page);
 
 <body>
     <div>
-        <a href='/'>Home</a>
+        <a class='pageButtons' href='/'>Home</a>
     </div>
 
     <div>
