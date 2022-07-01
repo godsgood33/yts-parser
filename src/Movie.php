@@ -22,6 +22,13 @@ class Movie
     public int $year;
 
     /**
+     * Movie language
+     *
+     * @var string
+     */
+    public string $lang;
+
+    /**
      * Variable to store the url to the movie itself
      *
      * @var string
@@ -256,8 +263,7 @@ class Movie
                 value='Download' />";
         }
         $ret = "<div class='movie'>
-            <a href='/details.php?title={$encodedTitle}".
-                "&year={$encodedYear}' ".
+            <a href='/movie/{$encodedTitle}/year/{$this->year}/' ".
                 "target='_blank'>
                 <img src='{$this->imgUrl}'/>
             </a><br />
@@ -266,6 +272,67 @@ class Movie
         </div>";
 
         return $ret;
+    }
+
+    /**
+     * Method to output the detail page
+     */
+    public function getDetails()
+    {
+        $encodedTitle = urlencode($this->title);
+        $download = null;
+        if ($this->highestResolution != '4K') {
+            $checked = ($this->download ? 'checked readonly' : null);
+            $download = "Download: <input type='checkbox' name='download' id='download' value='1' $checked /><br />";
+        }
+
+        print <<<EOF
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>
+        Movie details - {$this}
+    </title>
+
+    <link href='/css/style.css' type='text/css' rel='stylesheet' />
+    <link href='//code.jquery.com/ui/1.13.1/themes/dot-luv/jquery-ui.css' />
+</head>
+
+<body>
+    <h1>
+        {$this->title}
+    </h1>
+
+    <div>
+        <img src='{$this->imgUrl}' />
+    </div>
+
+    <form method='get'>
+        <input type='hidden' name='title' id='title'
+            value='{$encodedTitle}' />
+        <input type='hidden' name='year' id='year'
+            value='{$encodedTitle}' />
+
+        Highest quality:
+        {$this->highestVersion()}
+        <br />
+        Movie URL:
+        <a href='{$this->url}'>Link</a>
+        <br />
+        {$download}
+
+        Highest Resolution Available: {$this->highestVersionAvailable()}
+
+    </form>
+
+    <script src='https://code.jquery.com/jquery-3.6.0.min.js'></script>
+    <script src='https://code.jquery.com/ui/1.13.1/jquery-ui.min.js'></script>
+    <script src='/js/script.js'></script>
+</body>
+
+</html>
+EOF;
     }
 
     /**

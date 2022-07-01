@@ -227,6 +227,16 @@ class YTS
     }
 
     /**
+     * Method to get the number of movies in the array
+     *
+     * @return int
+     */
+    public function getMovieCount(): int
+    {
+        return count($this->movies);
+    }
+
+    /**
      * Method to return an array of all movies in the database
      *
      * @return array:Movie
@@ -502,22 +512,26 @@ class YTS
      */
     public static function install()
     {
-        $db = new SQLite3('movies.db');
-        $db->exec("CREATE TABLE `movies` (
-            `title` varchar(255) NOT NULL,
-            `year` varchar(5) NOT NULL,
-            `url` varchar(255) NOT NULL,
-            `imgUrl` varchar(255) DEFAULT NULL,
-            `download` tinyint(1) DEFAULT '0',
-            `hide` tinyint(1) DEFAULT '0',
-            `torrent720` varchar(255) DEFAULT NULL,
-            `complete720` tinyint(1) DEFAULT '0',
-            `torrent1080` varchar(255) DEFAULT NULL,
-            `complete1080` tinyint(1) DEFAULT '0',
-            `torrent2160` varchar(255) DEFAULT NULL,
-            `complete2160` tinyint(1) DEFAULT '0',
-            PRIMARY KEY (`title`,`year`)
-        )");
+        if (!file_exists('movies.db')) {
+            $db = new SQLite3('my-movies.db');
+            $db->exec("CREATE TABLE `movies` (
+                `title` varchar(255) NOT NULL,
+                `year` varchar(5) NOT NULL,
+                `url` varchar(255) NOT NULL,
+                `imgUrl` varchar(255) DEFAULT NULL,
+                `download` tinyint(1) DEFAULT '0',
+                `hide` tinyint(1) DEFAULT '0',
+                `torrent720` varchar(255) DEFAULT NULL,
+                `complete720` tinyint(1) DEFAULT '0',
+                `torrent1080` varchar(255) DEFAULT NULL,
+                `complete1080` tinyint(1) DEFAULT '0',
+                `torrent2160` varchar(255) DEFAULT NULL,
+                `complete2160` tinyint(1) DEFAULT '0',
+                PRIMARY KEY (`title`,`year`)
+            )");
+        } else {
+            copy('all-movies.db', 'my-movies.db');
+        }
     }
 
     /**

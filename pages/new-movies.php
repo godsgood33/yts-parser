@@ -1,17 +1,13 @@
 <?php
 
-require_once dirname(__DIR__).'/vendor/autoload.php';
-
 use YTS\YTS;
-use YTS\DotEnv;
 
-DotEnv::load(dirname(__DIR__).'/.env');
 $yts = new YTS();
 $page = $_GET['page'] ?? 1;
 $movies = $yts->getNewerMovies($page);
 ?>
 
-<!doctype html>
+<!DOCTYPE html>
 <html>
 
 <head>
@@ -21,10 +17,14 @@ $movies = $yts->getNewerMovies($page);
     <link href='//cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/regular.min.css' type='text/css'
         rel='stylesheet' />
 
-    <title>Movie Listing</title>
+    <title>New Movies</title>
 </head>
 
 <body>
+    <div>
+        <a href='/'>Home</a>
+    </div>
+
     <div>
         <div id='search-container'>
             <input type='text' name='search' id='search' />
@@ -39,11 +39,15 @@ $movies = $yts->getNewerMovies($page);
 
         <div id='pager'>
             <?php
-            print "<a href='/search.php' class='pageButtons'>&lt;&lt;</a>&nbsp;";
+            $pageCount = (int) count($movies) / YTS::PAGE_COUNT;
+
             if ($page > 1) {
-                print "<a class='pageButtons' href='/search.php?page=".($page-1)."'>&lt;</a>&nbsp;";
+                print "<a href='/new-movies' class='pageButtons'>&lt;&lt;</a>&nbsp;";
+                print "<a class='pageButtons' href='/new-movies/?page=".($page-1)."'>&lt;</a>&nbsp;";
             }
-            print "<a class='pageButtons' href='/search.php?page=".($page+1)."'>&gt;</a>";
+            if (($page + 1) < $pageCount) {
+                print "<a class='pageButtons' href='/new-movies/?page=".($page+1)."'>&gt;</a>";
+            }
             ?>
         </div>
 

@@ -7,19 +7,13 @@ use YTS\Plex;
 use YTS\TransServer;
 use YTS\YTS;
 use YTS\DotEnv;
+use YTS\CMD;
 
 DotEnv::load(__DIR__.'/.env');
-$cmd = YTS::getCommandParameters();
+$cmd = CMD::getCommandParameters();
 
 if ($cmd->showHelp) {
     die(YTS::usage());
-}
-
-$startPage = 1;
-$page = 1;
-if ($cmd->startPage) {
-    $startPage = $cmd->startPage;
-    $page = $cmd->startPage;
 }
 
 if ($cmd->install) {
@@ -29,7 +23,7 @@ if ($cmd->install) {
 }
 
 if ($cmd->update) {
-    $page = $startPage;
+    $page = $cmd->startPage;
     $keepGoing = true;
     $newMovie = 0;
     $existingMovie = 0;
@@ -54,6 +48,7 @@ if ($cmd->update) {
         
         foreach ($movies as $movie) {
             $imgLink = $movie->parent->parent->find('.img-responsive');
+            $lang = $movie->find('span');
 
             $title = trim($movie->text);
             $nm = new Movie(
@@ -62,12 +57,17 @@ if ($cmd->update) {
                 $imgLink->getAttribute('src')
             );
 
+            if (count($lang)) {
+                $nm->lang = (string) str_replace(['[', ']'], '', $lang->text);
+            }
+
             $movieExists = false;
 
             if ($yts->isMoviePresent($nm)) {
                 $nm = $yts->getMovie($nm->title, $nm->year);
 
                 if ($nm->retrieved) {
+                    print "Skipping {$nm}".PHP_EOL;
                     continue;
                 }
 
@@ -176,5 +176,11 @@ if ($cmd->highestVersion) {
         $yts->getTorrentLinks($movie);
         $yts->updateMovie($movie);
         $idx++;
+    }
+}
+
+if ($cmd->updatePlex) {
+    if (!$cmd->plexDB) {
+        die(YTS::usage());
     }
 }
