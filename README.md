@@ -1,24 +1,14 @@
 # YIFY Parser
 
-This library scrapes the YIFY website (https://yts.mx) for movie listings, and stores movie data to a database.  You can then set a `download` flag for any movie you want to download.  You can also pass in your Plex library file name (`com.plexapp.plugins.library.db`) so the script can check if you already have a movie.  It can then attempt to download a higher resolution version of the file you already have.  There are also flags for if you have already downloaded the movie in 720p, 1080p, or 4k.  If you already have a lower resolution version, you can change that flag as well.  Then it will download a higher resolution version, if available.
+This library scrapes the YIFY website (https://yts.mx) for movie listings, and stores movie data to a SQLite3 database.  You can use the built in web content to render an alphabetic listing of all of the movies and click the `Download` button if you'd like to download that movie.  You can also have it look in your Plex Media Server to see if a higher resolution version of the same movie is available.  There are also flags for if you have already downloaded the movie in 720p, 1080p, or 4k.  If you already have a lower resolution version, you can change that flag as well.
 
 ## Install
 
-Once you download the files, create a `.env` file in the directory and copy the following to it replacing the info to match your environment.  If you do not want to use this
-
-```
-TRANSMISSION_URL={IP of the Transmission server}
-TRANSMISSION_PORT={Port of the Transmission server}
-TRANSMISSION_USER={username to connect to the Transmission server}
-TRANSMISSION_PASSWORD={password for the Transmission server user}
-TRANSMISSION_DOWNLOAD_DIR={Download directory on the Transmission server}
-```
-
-Then you need to run `php yts-parser.php --install`.  This will create the required database table in the SQLite3 `movies.db` database. 
+Once you have the files downloaded and in the directory you want, run the installer `php yts-parser.php --install`.  This will create the SQLite3 database and tables, and create the `.env` file and populate it with the necessary values.  You will then need to edit the `.env` with your choosen text editor and update the values as appropriate for your setup.
 
 ## Plex
 
-If you have a Plex media server you can either copy the library (if it's on a different computer), or pass in the library path to the `--plex={path}` option when calling the `--update` option.  This will then query the Plex library for a matching title and year to determine what resolution of file you currently have.  Then when calling the `--download` option it will check those options and attempt to download a higher resolution version of the same movie.  If there will not be enough to download the torrent, the torrent will not start.
+If you have a Plex Media Server, you can update the `PLEX_SERVER` field in the `.env` file with the correct IP address (no host name).  If you do this, then when running the script with `--update` it will look at your Plex server and see if you already have that movie and what the resoution is.  When calling the script with the `--download` flag, it will look for movies that have a higher resolution version.
 
 ## Web Server
 
