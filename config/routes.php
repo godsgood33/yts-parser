@@ -24,6 +24,7 @@ $router->get('/new-movies', function () {
 
 $router->get('/search/{query}', function ($query) {
     $yts = new YTS();
+    print $yts->search($query);
 });
 
 $router->run();
