@@ -61,12 +61,12 @@ class TransServer
      */
     public function __construct()
     {
-        $downloadDir = getenv('TRANSMISSION_DOWNLOAD_DIR');
+        $downloadDir = $_ENV['TRANSMISSION_DOWNLOAD_DIR'];
         if ($downloadDir) {
             $this->downloadDir = $downloadDir;
         }
-        $url = getenv('TRANSMISSION_URL');
-        $port = getenv('TRANSMISSION_PORT');
+        $url = $_ENV['TRANSMISSION_URL'];
+        $port = $_ENV['TRANSMISSION_PORT'];
 
         if (!$url || !$port || !$downloadDir) {
             throw new Exception('Transmission data not available');
@@ -74,8 +74,8 @@ class TransServer
 
         $this->rpc = new Transmission($url, $port);
 
-        $user = getenv('TRANSMISSION_USER');
-        $password = getenv('TRANSMISSION_PASSWORD');
+        $user = $_ENV['TRANSMISSION_USER'];
+        $password = $_ENV['TRANSMISSION_PASSWORD'];
 
         if ($user && $password) {
             $this->client = new Client($url, $port);
