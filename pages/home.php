@@ -30,10 +30,11 @@ $movies = $yts->getMoviesByPage($page);
         <div id='search-container'>
             <input type='text' name='search' id='search' />
             <?php
+            $tsConnected = $yts->isTransmissionConnected();
             include_once(
-                $yts->isTransmissionConnected() ?
-                __DIR__."/assets/green.svg" :
-                __DIR__."/assets/red.svg"
+                $tsConnected ?
+                dirname(__DIR__)."/public/assets/green.svg" :
+                dirname(__DIR__)."/public/assets/red.svg"
             );
             ?>
         </div>
@@ -55,7 +56,8 @@ $movies = $yts->getMoviesByPage($page);
         <div id='container'>
             <?php
             foreach ($movies as $movie) {
-                print $movie->getHtml();
+                /** @var \YTS\Movie $movie */
+                print $movie->getHtml($tsConnected);
             }
 
             ?>
