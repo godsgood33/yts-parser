@@ -8,7 +8,8 @@
         "paquettg/php-html-parser": "^3.1",
         "transmission-php/transmission-php": "^2.2",
         "bramus/router": "^1.6",
-        "jc21/plex-api": "^1.2"
+        "jc21/plex-api": "^2.0",
+        "symfony/dotenv": "^6.1"
     },
     "autoload": {
         "psr-4": {
