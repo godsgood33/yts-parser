@@ -53,7 +53,7 @@ class YTS
      * @var array
      */
     private array $movies;
-    
+
     /**
      * Constructor
      */
@@ -64,8 +64,8 @@ class YTS
         $this->movies = $this->getMovies();
 
         $this->transmissionSvrConnected = self::ping(
-            getenv('TRANSMISSION_URL'),
-            getenv('TRANSMISSION_PORT')
+            $_ENV['TRANSMISSION_URL'],
+            $_ENV['TRANSMISSION_PORT']
         );
     }
 
@@ -128,7 +128,7 @@ class YTS
         $uhdLink = null;
         $fhdLink = null;
         $hdLink = null;
-    
+
         foreach ($torrentLinks as $link) {
             if (preg_match("/2160p\.BluRay/", $link->text)) {
                 $uhdLink = $link->getAttribute('href');
@@ -148,11 +148,11 @@ class YTS
         if ($uhdLink && $m->uhdTorrent != $uhdLink) {
             $m->uhdTorrent = $uhdLink;
         }
-        
+
         if ($fhdLink && $m->fhdTorrent != $fhdLink) {
             $m->fhdTorrent = $fhdLink;
         }
-        
+
         if ($hdLink && $m->hdTorrent != $hdLink) {
             $m->hdTorrent = $hdLink;
         }
@@ -458,12 +458,13 @@ class YTS
         LIMIT 30";
         $res = $this->db->query($sql);
 
+        $tsConnected = $this->isTransmissionConnected();
         $ret = '';
         if (is_a($res, 'SQLite3Result') && $res->numColumns() > 1) {
             while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
                 $movie = Movie::fromDB($row);
 
-                $ret .= $movie->getHtml();
+                $ret .= $movie->getHtml($tsConnected);
             }
         }
 
@@ -513,7 +514,7 @@ class YTS
     public static function install()
     {
         if (!file_exists('movies.db')) {
-            $db = new SQLite3('my-movies.db');
+            $db = new SQLite3('movies.db');
             $db->exec("CREATE TABLE `movies` (
                 `title` varchar(255) NOT NULL,
                 `year` varchar(5) NOT NULL,
@@ -529,9 +530,22 @@ class YTS
                 `complete2160` tinyint(1) DEFAULT '0',
                 PRIMARY KEY (`title`,`year`)
             )");
-        } else {
-            copy('all-movies.db', 'my-movies.db');
         }
+
+        $env = <<<EOF
+        PLEX_SERVER={IP of Plex Server}
+        PLEX_USER={username/email of Plex.tv account}
+        PLEX_PASSWORD={password for user}
+        
+        TRANSMISSION_URL={IP of Transmission server}
+        TRANSMISSION_PORT={Port Transmission server is listening on}
+        TRANSMISSION_USER={User to connect to server}
+        TRANSMISSION_PASSWORD={User's password}
+        TRANSMISSION_DOWNLOAD_DIR={Directory to download torrents to}
+
+        EOF;
+
+        file_put_contents('.env', $env);
     }
 
     /**
@@ -570,7 +584,7 @@ links and download them with a Transmission server.
 --torrentLinks          Flag to retrieve the torrent links from each title page
 --page={number}         What page do you want to start on
 --count={number}        How many pages do you want to read
---plex={Plex library}   Flag to point to a Plex library
+--plexToken             Flag to return the Plex authentication token
 -h | --help             This page
 
 
