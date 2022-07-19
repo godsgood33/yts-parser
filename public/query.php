@@ -6,10 +6,12 @@ use YTS\YTS;
 use YTS\DotEnv;
 use YTS\TransServer;
 
+DotEnv::$DEFINE = false;
+DotEnv::$LOAD_ENV = false;
+DotEnv::load(dirname(__DIR__).'/.env');
+
 $action = $_POST['action'] ?? null;
 $yts = new YTS();
-
-DotEnv::load(dirname(__DIR__).'/.env');
 
 if ($action == 'updateDownload' || $action == 'download') {
     $title = urldecode($_POST['title']);
