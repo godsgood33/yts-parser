@@ -2,6 +2,8 @@
 
 namespace YTS;
 
+use jc21\Movies\Movie as MoviesMovie;
+
 /**
  * Class to create a movie
  */
@@ -192,31 +194,36 @@ class Movie
     /**
      * Method to set resolutions
      *
-     * @param array $res
+     * @param MoviesMovie $res
      */
-    public function setDownload(array $res)
+    public function setDownload(MoviesMovie $res)
     {
-        if ($res['width'] < 1280) {
-            $this->download = 1;
-        } elseif ((
-            $res['width'] >= 1280 && $res['width'] < 1920
-        )) {
+        if ($res->media->videoResolution == 'sd') {
+            $this->download = true;
+            return;
+        }
+
+        if ($res->media->videoResolution == 720) {
             print "HD version found".PHP_EOL;
-            $this->download = 1;
-            $this->hdComplete = 1;
-        } elseif ((
-            $res['width'] >= 1920 && $res['width'] < 3840
-        )) {
+            $this->download = true;
+            $this->hdComplete = true;
+            return;
+        }
+        
+        if ($res->media->videoResolution == 1080) {
             print "FHD version found".PHP_EOL;
-            $this->download = 1;
-            $this->hdComplete = 1;
-            $this->fhdComplete = 1;
-        } elseif ($res['width'] >= 3840) {
+            $this->download = true;
+            $this->hdComplete = true;
+            $this->fhdComplete = true;
+            return;
+        }
+        
+        if ($res->media->videoResolution == '4k') {
             print "4K version found".PHP_EOL;
-            $this->download = 0;
-            $this->hdComplete = 1;
-            $this->fhdComplete = 1;
-            $this->uhdComplete = 1;
+            $this->download = false;
+            $this->hdComplete = true;
+            $this->fhdComplete = true;
+            $this->uhdComplete = true;
         }
     }
 
@@ -245,16 +252,18 @@ class Movie
     /**
      * Method to generate html card
      *
+     * @param bool $tsConnected
+     *
      * @return string
      */
-    public function getHtml(): string
+    public function getHtml(bool $tsConnected): string
     {
         $button = null;
         $class = $this->getClass();
         $encodedTitle = urlencode($this->title);
         $encodedYear = urlencode($this->year);
 
-        if ($class != 'have4k' && $this->betterVersionAvailable()) {
+        if ($class != 'have4k' && $this->betterVersionAvailable() && $tsConnected) {
             $button = "<input 
                 type='button' 
                 class='download' 
