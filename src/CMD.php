@@ -11,10 +11,9 @@ namespace YTS;
  * @property bool $download
  * @property bool $highestVersion
  * @property bool $torrentLinks
- * @property bool $updatePlex
+ * @property bool $plexToken
  * @property int $startPage
  * @property int $pageCount
- * @property string $plexDB
  */
 class CMD
 {
@@ -65,7 +64,7 @@ class CMD
      *
      * @var bool
      */
-    private bool $updatePlex;
+    private bool $plexToken;
 
     /**
      * Variable to store the start page
@@ -80,13 +79,6 @@ class CMD
      * @var int
      */
     private ?int $pageCount;
-
-    /**
-     * String to store the file path to the Plex database
-     *
-     * @var string
-     */
-    private ?string $plexDB;
 
     /**
      * Magic getter method
@@ -113,8 +105,8 @@ class CMD
     {
         $ret = new static();
         $arr = getopt('h', [
-            'install::', 'update::', 'download::', 'page:', 'count:', 'plex:', 'help::', 'highestVersion::',
-            'torrentLinks::', 'updatePlex::'
+            'install::', 'update::', 'download::', 'page:', 'count:', 'highestVersion::',
+            'torrentLinks::', 'plexToken::', 'libraryList::', 'help::'
         ]);
 
         $ret->showHelp = (bool) (isset($arr['h']) || isset($arr['help']));
@@ -129,11 +121,9 @@ class CMD
         $ret->pageCount = (
             isset($arr['count']) && is_numeric($arr['count']) && $arr['count'] > 0 ? $arr['count'] : null
         );
-        $ret->plexDB = (
-            isset($arr['plex']) && $arr['plex'] && file_exists($arr['plex']) ? $arr['plex'] : null
-        );
         $ret->torrentLinks = isset($arr['torrentLinks']);
-        $ret->updatePlex = isset($arr['updatePlex']);
+        $ret->plexToken = isset($arr['plexToken']);
+        $ret->libraryList = isset($arr['libraryList']);
 
         return $ret;
     }
