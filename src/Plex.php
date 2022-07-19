@@ -2,7 +2,8 @@
 
 namespace YTS;
 
-use SQLite3;
+use jc21\PlexApi;
+use jc21\Util\Filter;
 
 /**
  * Class to store Plex and interact with database
@@ -10,71 +11,90 @@ use SQLite3;
 class Plex
 {
     /**
-     * SQLite 3 database connection
+     * connection to a Plex server
      *
-     * @var SQLite3
+     * @var PlexApi
      */
-    private SQLite3 $db;
+    private PlexApi $api;
 
     /**
-     * Variable to know if the database is connected
+     * Plex library
      *
-     * @var bool
+     * @var array
      */
-    private bool $isConnected;
+    private array $library;
 
     /**
      * Constructor
-     */
-    public function __construct()
-    {
-        $this->isConnected = false;
-    }
-
-    /**
-     * Set database connection if available
      *
-     * @param string $dbFile
+     * @param PlexApi $server
      */
-    public function setDB(string $dbFile)
+    public function __construct(?PlexApi $server)
     {
-        $this->db = new SQLite3($dbFile);
-        $this->isConnected = true;
+        $this->api = $server;
     }
 
     /**
-     * Method to check if the plex database is present
+     * Method to check if the api is connected the Plex server
      *
      * @return bool
      */
-    public function isConnected(): bool
+    public function isConnected()
     {
-        return $this->isConnected;
+        return is_a($this->api, "jc21\PlexApi");
     }
 
     /**
      * Method to check the Plex library for a particular title
      *
      * @param Movie $m
+     *
+     * @return \jc21\Movies\Movie|bool
      */
-    public function check(Movie &$m)
+    public function check(Movie &$m): \jc21\Movies\Movie|bool
     {
-        $this->db->enableExceptions(true);
-        $res = $this->db->query(
-            "SELECT mdi.`id`,mdi.`title`,mi.`height`,mi.`width`
-            FROM `media_items` mi
-            JOIN `metadata_items` mdi ON mdi.id = mi.metadata_item_id 
-            WHERE 
-            LOWER(mdi.`title`) = LOWER('{$this->db->escapeString($m->title)}')
-            AND 
-            mdi.`year` = '{$this->db->escapeString($m->year)}'
-            AND
-            mdi.`metadata_type` = 1
-            ORDER BY mi.`width` DESC"
-        );
+        $filter1 = new Filter('title', $m->title);
+        $filter2 = new Filter('year', $m->year);
+        $res = $this->api->filter($_ENV['PLEX_MOVIE_LIBRARY'], [$filter1, $filter2], true);
 
-        $row = $res->fetchArray(SQLITE3_ASSOC);
+        if (is_a($res, 'jc21\Collections\ItemCollection') && $res->count()) {
+            $movie = $res->getData();
+            return $movie;
+        }
 
-        return $row;
+        return false;
+    }
+
+    /**
+     * Method to check for Plex environment variables
+     *
+     * @return bool
+     */
+    public static function validateEnvironment(): bool
+    {
+        $ret = true;
+
+        if (!isset($_ENV['PLEX_SERVER']) ||
+            !$_ENV['PLEX_SERVER'] ||
+            !filter_var($_ENV['PLEX_SERVER'], FILTER_VALIDATE_IP, FILTER_NULL_ON_FAILURE)) {
+            $ret = false;
+            print "Invalid Plex server IP".PHP_EOL;
+        }
+
+        if (!isset($_ENV['PLEX_TOKEN']) || !$_ENV['PLEX_TOKEN']) {
+            if (!isset($_ENV['PLEX_USER']) ||
+                !$_ENV['PLEX_USER'] ||
+                !filter_var($_ENV['PLEX_USER'], FILTER_VALIDATE_EMAIL, FILTER_NULL_ON_FAILURE)) {
+                $ret = false;
+                print "Invalid Plex user email".PHP_EOL;
+            }
+
+            if (!isset($_ENV['PLEX_PASSWORD'])) {
+                $ret = false;
+                print "PLEX_PASSWORD environment variable not present".PHP_EOL;
+            }
+        }
+
+        return $ret;
     }
 }
