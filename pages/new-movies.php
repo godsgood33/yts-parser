@@ -3,8 +3,7 @@
 use YTS\YTS;
 
 $yts = new YTS();
-$page = $_GET['page'] ?? 1;
-$movies = $yts->getNewerMovies($page);
+$movies = $yts->getNewerMovies();
 ?>
 
 <!DOCTYPE html>
@@ -23,23 +22,25 @@ $movies = $yts->getNewerMovies($page);
 <body>
     <div>
         <a class='pageButtons' href='/'>Home</a>
+        <a href='#' class='pageButtons' onclick='javascript:toggleStatus()'>Toggle</a>
     </div>
 
     <div>
         <div id='search-container'>
             <input type='text' name='search' id='search' />
             <?php
+            $tsConnected = $yts->isTransmissionConnected();
             include_once(
-                $yts->isTransmissionConnected() ?
-                __DIR__."/assets/green.svg" :
-                __DIR__."/assets/red.svg"
+                $tsConnected ?
+                dirname(__DIR__)."/public/assets/green.svg" :
+                dirname(__DIR__)."/public/assets/red.svg"
             );
             ?>
         </div>
 
         <div id='pager'>
             <?php
-            $pageCount = (int) count($movies) / YTS::PAGE_COUNT;
+            $pageCount = $movies->count() / YTS::PAGE_COUNT;
 
             if ($page > 1) {
                 print "<a href='/new-movies' class='pageButtons'>&lt;&lt;</a>&nbsp;";
@@ -49,12 +50,14 @@ $movies = $yts->getNewerMovies($page);
                 print "<a class='pageButtons' href='/new-movies/?page=".($page+1)."'>&gt;</a>";
             }
             ?>
+            <span id='downloadSize'></span>&nbsp;&nbsp;
+            <span id='freeSpace'></span>&nbsp;&nbsp;
         </div>
 
         <div id='container'>
             <?php
             foreach ($movies as $movie) {
-                print $movie->getHtml();
+                print $movie->getHtml($tsConnected);
             }
             
             ?>
