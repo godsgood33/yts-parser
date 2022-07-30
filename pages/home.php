@@ -23,7 +23,9 @@ $movies = $yts->getMoviesByPage($page);
 <body>
 
     <div>
-        <a class='pageButtons' href='/new-movies/'>New Movies</a>
+        <a class='pageButtons' href='/new-movies/'>New Movies</a>&nbsp;&nbsp;
+        <a class='pageButtons' href='/duplicates/'>Duplicates</a>&nbsp;&nbsp;
+        <a href='#' class='pageButtons' onclick='javascript:toggleStatus()'>Toggle</a>
     </div>
 
     <div>
@@ -51,6 +53,8 @@ $movies = $yts->getMoviesByPage($page);
                 print "<a class='pageButtons' href='/?page=".($page+1)."'>&gt;</a>";
             }
             ?>
+            <span id='downloadSize'></span>&nbsp;&nbsp;
+            <span id='freeSpace'></span>&nbsp;&nbsp;
         </div>
 
         <div id='container'>
