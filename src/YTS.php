@@ -5,6 +5,7 @@ namespace YTS;
 use SQLite3;
 use PHPHtmlParser\Dom;
 use GuzzleHttp\Exception\ConnectException;
+use jc21\PlexApi;
 use YTS\Movie;
 
 /**
@@ -227,6 +228,23 @@ class YTS
     }
 
     /**
+     * Method to delete a movie from the library
+     *
+     * @param string $title
+     * @param int $year
+     *
+     * @return bool
+     */
+    public function deleteMovie(string $title, int $year): bool
+    {
+        return $this->db->exec(
+            "DELETE FROM `movies`
+                WHERE `title`='{$this->db->escapeString($title)}' AND
+                `year`={$this->db->escapeString($year)}"
+        );
+    }
+
+    /**
      * Method to get the number of movies in the array
      *
      * @return int
@@ -245,7 +263,8 @@ class YTS
     {
         $ret = [];
         $res = $this->db->query(
-            "SELECT * FROM `movies` ORDER BY REPLACE(`title`, 'The ', ''),`year`"
+            "SELECT * FROM `movies` 
+            ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), `year`"
         );
         while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
             $movie = Movie::fromDB($row);
@@ -277,11 +296,11 @@ class YTS
      *
      * @param int $pageNo
      *
-     * @return array:Movie
+     * @return MovieCollection
      */
-    public function getMoviesByPage(int $pageNo): array
+    public function getMoviesByPage(int $pageNo): MovieCollection
     {
-        $ret = [];
+        $ret = new MovieCollection();
         $PAGE_COUNT = self::PAGE_COUNT;
         $offset = $pageNo * self::PAGE_COUNT;
         $res = $this->db->query(
@@ -293,7 +312,7 @@ class YTS
 
         while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
             $movie = Movie::fromDB($row);
-            $ret[] = $movie;
+            $ret->addData($movie);
         }
 
         return $ret;
@@ -318,11 +337,11 @@ class YTS
     /**
      * Method to get all the movies that need to be check for new versions
      *
-     * @return array:Movie
+     * @return MovieCollection
      */
-    public function getDownloadableMovies(): array
+    public function getDownloadableMovies(): MovieCollection
     {
-        $movies = [];
+        $movies = new MovieCollection();
         $res = $this->db->query(
             "SELECT *
             FROM `movies`
@@ -338,7 +357,7 @@ class YTS
 
         while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
             $movie = Movie::fromDB($row);
-            $movies[] = $movie;
+            $movies->addData($movie);
         }
 
         $res = $this->db->query(
@@ -356,7 +375,7 @@ class YTS
 
         while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
             $movie = Movie::fromDB($row);
-            $movies[] = $movie;
+            $movies->addData($movie);
         }
 
         return $movies;
@@ -448,6 +467,7 @@ class YTS
      */
     public function search(string $search): string
     {
+        $PAGE_COUNT = self::PAGE_COUNT;
         $sql = "SELECT *
         FROM movies
         WHERE
@@ -455,7 +475,7 @@ class YTS
         OR
         `year` LIKE '%{$this->db->escapeString($search)}%'
         ORDER BY `title`,`year`
-        LIMIT 30";
+        LIMIT {$PAGE_COUNT}";
         $res = $this->db->query($sql);
 
         $tsConnected = $this->isTransmissionConnected();
@@ -477,22 +497,54 @@ class YTS
      *
      * @param int $pageNo
      *
-     * @return array
+     * @return MovieCollection
      */
-    public function getNewerMovies(int $pageNo): array
+    public function getNewerMovies(): MovieCollection
     {
-        $ret = [];
-        $PAGE_COUNT = self::PAGE_COUNT;
-        $offset = $pageNo * self::PAGE_COUNT;
+        $ret = new MovieCollection();
         $res = $this->db->query(
             "SELECT * FROM `movies`
             WHERE
             `download` = 1
             AND
-            ((`torrent1080` != '' AND `complete1080` = 0)
+            ((`torrent2160` != '' AND `complete2160` = 0)
             OR
-            (`torrent2160` != '' AND `complete2160` = 0))
-            ORDER BY REPLACE(`title`, 'The ', ''), `year`
+            (`torrent1080` != '' AND `complete1080` = 0))
+            ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'An ', ''), 'A ', ''), `year`"
+        );
+
+        if (is_bool($res)) {
+            return $ret;
+        }
+
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $movie = Movie::fromDB($row);
+            $ret->addData($movie);
+        }
+
+        return $ret;
+    }
+
+    /**
+     * Method to find duplicate movies
+     *
+     * @param int $pageNo
+     *
+     * @return MovieCollection
+     */
+    public function getDuplicateMovies(int $pageNo = 0): MovieCollection
+    {
+        $ret = new MovieCollection();
+        $PAGE_COUNT = self::PAGE_COUNT;
+        $offset = $pageNo * self::PAGE_COUNT;
+        $res = $this->db->query(
+            "SELECT * FROM `movies` 
+            WHERE `title` IN (
+                SELECT `title` FROM `movies`
+                GROUP BY `title`
+                HAVING COUNT(`title`) > 1
+            )
+            ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), `year`
             LIMIT {$offset},{$PAGE_COUNT}"
         );
 
@@ -502,7 +554,7 @@ class YTS
 
         while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
             $movie = Movie::fromDB($row);
-            $ret[] = $movie;
+            $ret->addData($movie);
         }
 
         return $ret;
@@ -515,7 +567,7 @@ class YTS
     {
         if (!file_exists('movies.db')) {
             $db = new SQLite3('movies.db');
-            $db->exec("CREATE TABLE `movies` (
+            $db->exec("CREATE TABLE IF NOT EXISTS `movies` (
                 `title` varchar(255) NOT NULL,
                 `year` varchar(5) NOT NULL,
                 `url` varchar(255) NOT NULL,
@@ -530,18 +582,67 @@ class YTS
                 `complete2160` tinyint(1) DEFAULT '0',
                 PRIMARY KEY (`title`,`year`)
             )");
+
+            $db->exec("CREATE TABLE IF NOT EXISTS `meta` (
+                `field` varchar(255) NOT NULL,
+                `value` mediumtext DEFAULT NULL,
+                PRIMARY KEY (`field`)
+            )");
+
+            $db->exec("INSERT INTO `meta` (`field`,`value`) VALUES ('last_update',null)");
+        }
+
+        $plex = readline('Do you have a Plex server [n]? ');
+
+        if (strtolower($plex) == 'y') {
+            $plexServer = readline('Plex server IP [127.0.0.1]? ');
+            $plexUser = readline('Plex account email? ');
+            exec('stty -echo');
+            print 'Plex account password? ';
+            $plexPassword = trim(fgets(STDIN));
+            exec('stty echo');
+            print PHP_EOL.PHP_EOL;
+
+            $api = new PlexApi($plexServer);
+            $api->setAuth($plexUser, $plexPassword);
+            $plexToken = $api->getToken();
+
+            $plex = <<<EOF
+            PLEX_SERVER={$plexServer}
+            PLEX_TOKEN={$plexToken}
+            EOF;
+        } else {
+            $plex = null;
+        }
+
+        $transmission = readline('Do you have a Transmission server [n]? ');
+
+        if (strtolower($transmission) == 'y') {
+            $transServer = readline('Transmission server IP [127.0.0.1]? ');
+            $transServerPort = readline('Transmission server port [9091]? ');
+            $transServerUser = readline('Transmission server user? ');
+            system('stty -echo');
+            print 'Transmission server password? ';
+            $transServerPassword = trim(fgets(STDIN));
+            system('stty echo');
+            print PHP_EOL;
+            $transServerDownloadDir = readline('Transmission server download directory [~/Downloads]? ');
+            
+            $transmission = <<<EOF
+            TRANSMISSION_URL={$transServer}
+            TRANSMISSION_PORT={$transServerPort}
+            TRANSMISSION_USER={$transServerUser}
+            TRANSMISSION_PASSWORD={$transServerPassword}
+            TRANSMISSION_DOWNLOAD_DIR={$transServerDownloadDir}
+            EOF;
+        } else {
+            $transmission = null;
         }
 
         $env = <<<EOF
-        PLEX_SERVER={IP of Plex Server}
-        PLEX_USER={username/email of Plex.tv account}
-        PLEX_PASSWORD={password for user}
-        
-        TRANSMISSION_URL={IP of Transmission server}
-        TRANSMISSION_PORT={Port Transmission server is listening on}
-        TRANSMISSION_USER={User to connect to server}
-        TRANSMISSION_PASSWORD={User's password}
-        TRANSMISSION_DOWNLOAD_DIR={Directory to download torrents to}
+        $plex
+
+        $transmission
 
         EOF;
 
