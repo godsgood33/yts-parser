@@ -28,13 +28,14 @@ $router->get('/duplicates', function () {
     require_once(dirname(__DIR__).'/pages/duplicates.php');
 });
 
-$router->get('/search/{query}', function ($query) {
+$router->post('/search', function () {
+    $query = urldecode($_POST['term']);
     $yts = new YTS();
     print $yts->search($query);
 });
 
-$router->post('/download', function ($query) {
-    die(print_r($query, true));
+$router->post('/download', function () {
+    die(print_r($_POST, true));
     $yts = new YTS();
     $title = urldecode($_POST['title']);
     $year = (int) urldecode($_POST['year']);
