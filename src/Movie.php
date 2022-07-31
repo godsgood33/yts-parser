@@ -182,9 +182,9 @@ class Movie
     public function highestVersionAvailable(): string
     {
         $ret = 'HD';
-        if (!$this->uhdComplete && $this->uhdTorrent) {
+        if ($this->uhdComplete || (!$this->uhdComplete && $this->uhdTorrent)) {
             $ret = 'UHD';
-        } elseif (!$this->fhdComplete && $this->fhdTorrent) {
+        } elseif ($this->fhdComplete || (!$this->fhdComplete && $this->fhdTorrent)) {
             $ret = 'FHD';
         }
 
@@ -203,15 +203,13 @@ class Movie
             return;
         }
 
-        if ($res->media->videoResolution == 720) {
-            print "HD version found".PHP_EOL;
+        if ($res->media->videoResolution == '720') {
             $this->download = true;
             $this->hdComplete = true;
             return;
         }
         
-        if ($res->media->videoResolution == 1080) {
-            print "FHD version found".PHP_EOL;
+        if ($res->media->videoResolution == '1080') {
             $this->download = true;
             $this->hdComplete = true;
             $this->fhdComplete = true;
@@ -219,7 +217,6 @@ class Movie
         }
         
         if ($res->media->videoResolution == '4k') {
-            print "4K version found".PHP_EOL;
             $this->download = false;
             $this->hdComplete = true;
             $this->fhdComplete = true;
@@ -276,8 +273,33 @@ class Movie
                 "target='_blank'>
                 <img src='{$this->imgUrl}'/>
             </a><br />
-            <span class='{$class}'>{$this->title} ({$this->year})</span><br />
+            <span class='{$class}'>{$this->highestVersionAvailable()} - {$this->title} ({$this->year})</span><br />
             {$button}
+        </div>";
+
+        return $ret;
+    }
+
+    /**
+     * Method to return html for the duplicate page
+     *
+     * @param boolean $tsConnected
+     * @return string
+     */
+    public function getDuplicateHtml(bool $tsConnected): string
+    {
+        $class = $this->getClass();
+        $encodedTitle = urlencode($this->title);
+        $encodedYear = urlencode($this->year);
+
+        $ret = "<div class='movie'>
+            <a href='{$this->url}' ".
+                "target='_blank'>
+                <img src='{$this->imgUrl}'/>
+            </a><br />
+            <span class='{$class}'>{$this->highestVersionAvailable()} - {$this->title} ({$this->year})</span><br />
+            <input type='button' class='delete' data-title='{$encodedTitle}' 
+                data-year='{$encodedYear}' value='Delete' />
         </div>";
 
         return $ret;
