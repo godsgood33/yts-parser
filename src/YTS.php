@@ -6,6 +6,7 @@ use SQLite3;
 use PHPHtmlParser\Dom;
 use GuzzleHttp\Exception\ConnectException;
 use jc21\PlexApi;
+use jc21\Section;
 use YTS\Movie;
 
 /**
@@ -627,13 +628,38 @@ class YTS
             exec('stty echo');
             print PHP_EOL.PHP_EOL;
 
+            if (empty($plexServer)) {
+                $plexServer = '127.0.0.1';
+            }
+
+            if (empty($plexUser) || empty($plexPassword)) {
+                die('You must specific a Plex.tv email and password');
+            }
+
             $api = new PlexApi($plexServer);
             $api->setAuth($plexUser, $plexPassword);
             $plexToken = $api->getToken();
 
+            $sec = $api->getLibrarySections();
+            $libraries = [];
+            print "ID\t".str_pad("Title", 20, ' ', STR_PAD_RIGHT)."Path".PHP_EOL;
+            foreach ($sec['Directory'] as $s) {
+                $section = Section::fromLibrary($s);
+                $libraries[] = $section->key;
+                print "{$section->key}\t".
+                    str_pad($section->title, 20, ' ', STR_PAD_RIGHT).
+                    $section->location->path.PHP_EOL;
+            }
+            $plexLibrary = readline('Which library is the main movie library? ');
+
+            if (!in_array($plexLibrary, $libraries, true)) {
+                die('You must select a number from the library list above');
+            }
+
             $plex = <<<EOF
             PLEX_SERVER={$plexServer}
             PLEX_TOKEN={$plexToken}
+            PLEX_MOVIE_LIBRARY={$plexLibrary}
             EOF;
         } else {
             $plex = null;
@@ -651,6 +677,20 @@ class YTS
             system('stty echo');
             print PHP_EOL;
             $transServerDownloadDir = readline('Transmission server download directory [~/Downloads]? ');
+
+            if (empty($transServer)) {
+                $transServer = '127.0.0.1';
+            }
+            if (empty($transServerPort)) {
+                $transServerPort = 9091;
+            }
+            if (empty($transServerDownloadDir)) {
+                $transServerDownloadDir = '~/Downloads';
+            }
+
+            if (empty($transServerUser) || empty($transServerPassword)) {
+                die('You must specify a username and password to connect to a Transmission server');
+            }
             
             $transmission = <<<EOF
             TRANSMISSION_URL={$transServer}
@@ -709,7 +749,6 @@ links and download them with a Transmission server.
 --torrentLinks          Flag to retrieve the torrent links from each title page
 --page={number}         What page do you want to start on
 --count={number}        How many pages do you want to read
---plexToken             Flag to return the Plex authentication token
 -h | --help             This page
 
 
