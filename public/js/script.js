@@ -1,7 +1,13 @@
 $(function () {
     $('#download').click(updateDownload);
-    $('.download').click(download);
-    $('.delete').click(deleteMovie);
+    $('.download').click(function (e) {
+        e.preventDefault();
+        download()
+    });
+    $('.delete').click(function (e) {
+        e.preventDefault();
+        deleteMovie()
+    });
     $('#search').keypress(search);
     ts = setTimeout(torrentStatus, 1000);
 });
