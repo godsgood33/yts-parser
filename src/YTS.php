@@ -51,9 +51,9 @@ class YTS
     /**
      * Array to store all movies in the database
      *
-     * @var array
+     * @var MovieCollection
      */
-    private array $movies;
+    private MovieCollection $movies;
 
     /**
      * Constructor
@@ -62,7 +62,8 @@ class YTS
     {
         $this->dom = new Dom();
         $this->db = new SQLite3(dirname(__DIR__).'/movies.db');
-        $this->movies = $this->getMovies();
+        $this->movies = new MovieCollection();
+        $this->populateMovies();
 
         $this->transmissionSvrConnected = self::ping(
             $_ENV['TRANSMISSION_URL'],
@@ -237,6 +238,13 @@ class YTS
      */
     public function deleteMovie(string $title, int $year): bool
     {
+        $m = $this->movies->getMovieByTitle($title, $year);
+        if (!$m) {
+            return false;
+        }
+
+        $this->movies->removeMovie($m);
+
         return $this->db->exec(
             "DELETE FROM `movies`
                 WHERE `title`='{$this->db->escapeString($title)}' AND
@@ -251,7 +259,23 @@ class YTS
      */
     public function getMovieCount(): int
     {
-        return count($this->movies);
+        return $this->movies->count();
+    }
+
+    /**
+     * Method to populate the movie collection
+     */
+    private function populateMovies()
+    {
+        $res = $this->db->query(
+            "SELECT * FROM `movies`
+            ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), `year`"
+        );
+
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $m = Movie::fromDB($row);
+            $this->movies->addData($m);
+        }
     }
 
     /**
@@ -261,7 +285,6 @@ class YTS
      */
     public function getMovies(): array
     {
-        $ret = [];
         $res = $this->db->query(
             "SELECT * FROM `movies` 
             ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), `year`"
@@ -284,8 +307,9 @@ class YTS
      */
     public function getMovie(string $title, int $year)
     {
-        if (isset($this->movies[$title][$year])) {
-            return $this->movies[$title][$year];
+        $m = $this->movies->getMovieByTitle($title, $year);
+        if ($m) {
+            return $m;
         }
 
         return false;
