@@ -261,12 +261,8 @@ class Movie
         $encodedYear = urlencode($this->year);
 
         if ($class != 'have4k' && $this->betterVersionAvailable() && $tsConnected) {
-            $button = "<input 
-                type='button' 
-                class='download' 
-                data-title='{$encodedTitle}' 
-                data-year='{$encodedYear}' 
-                value='Download' />";
+            $button = "<a class='pageButtons download' href='#' data-title='{$encodedTitle}'
+                data-year='{$encodedYear}'>Download</a>";
         }
         $ret = "<div class='movie'>
             <a href='/movie/{$encodedTitle}/year/{$this->year}/' ".
@@ -298,8 +294,8 @@ class Movie
                 <img src='{$this->imgUrl}'/>
             </a><br />
             <span class='{$class}'>{$this->highestVersionAvailable()} - {$this->title} ({$this->year})</span><br />
-            <input type='button' class='delete' data-title='{$encodedTitle}' 
-                data-year='{$encodedYear}' value='Delete' />
+            <a class='delete pageButtons' data-title='{$encodedTitle}'
+                data-year='{$encodedYear}'>Delete</a>
         </div>";
 
         return $ret;
@@ -387,7 +383,7 @@ EOF;
      *
      * @param array $sc
      *
-     * @return self
+     * @return Movie
      */
     public static function fromDB(array $sc): Movie
     {
@@ -403,6 +399,13 @@ EOF;
         $self->download = (bool) $sc['download'];
 
         return $self;
+    }
+
+    public function fromMovie(\jc21\Movies\Movie $m): Movie
+    {
+        $me = new static($m->title, '', '');
+
+        return $me;
     }
 
     /**
