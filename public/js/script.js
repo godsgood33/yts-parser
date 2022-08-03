@@ -81,6 +81,7 @@ function deleteMovie() {
             if (res.success) {
                 alert(res.title + ' (' + res.year + ') deleted');
                 $(btn).parent().remove();
+                $('#movieCount').text(res.movieCount);
                 return;
             }
             console.log(res);
