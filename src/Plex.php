@@ -2,6 +2,7 @@
 
 namespace YTS;
 
+use Exception;
 use jc21\PlexApi;
 use jc21\Util\Filter;
 
@@ -32,6 +33,11 @@ class Plex
     public function __construct(?PlexApi $server)
     {
         $this->api = $server;
+        $this->library = [];
+
+        if (isset($_ENV['PLEX_MOVIE_LIBRARY']) && is_numeric($_ENV['PLEX_MOVIE_LIBRARY'])) {
+            $this->populateLibrary();
+        }
     }
 
     /**
@@ -42,6 +48,34 @@ class Plex
     public function isConnected()
     {
         return is_a($this->api, "jc21\PlexApi");
+    }
+
+    /**
+     * Method to populate the library of movies in Plex
+     */
+    public function populateLibrary()
+    {
+        if (!$this->isConnected()) {
+            throw new Exception('Cannot connect to Plex server');
+        }
+
+        $res = $this->api->getLibrarySectionContents($_ENV['PLEX_MOVIE_LIBRARY'], true);
+
+        foreach ($res as $m) {
+            /** @var \jc21\Movies\Movie $m */
+            $id = sha1($m->title.'-'.$m->year);
+            $this->library[$id] = $m;
+        }
+    }
+
+    /**
+     * Method to get the library
+     *
+     * @return array
+     */
+    public function getLibrary(): array
+    {
+        return $this->library;
     }
 
     /**
