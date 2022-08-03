@@ -35,7 +35,6 @@ $router->post('/search', function () {
 });
 
 $router->post('/download', function () {
-    die(print_r($_POST, true));
     $yts = new YTS();
     $title = urldecode($_POST['title']);
     $year = (int) urldecode($_POST['year']);
@@ -96,6 +95,7 @@ $router->post('/deleteMovie', function () {
             'success' => $res,
             'title' => $title,
             'year' => $year,
+            'movieCount' => $yts->getMovieCount()
         ]);
 });
 
@@ -125,6 +125,10 @@ $router->post('/status', function () {
             'active' => $activeTorrent,
             'complete' => $torrentComplete
         ]);
+});
+
+$router->get('/plex', function () {
+    require_once(dirname(__DIR__).'/pages/plex-movies.php');
 });
 
 $router->run();
