@@ -5,12 +5,16 @@ use YTS\YTS;
 $yts = new YTS();
 
 $title = 'Movie Listing';
-if ($_SERVER['PATH_INFO'] == '/duplicates/') {
-    $title = 'Duplicates';
-} elseif ($_SERVER['PATH_INFO'] == '/new-movies/') {
-    $title = 'New Movies';
-} elseif ($_SERVER['PATH_INFO'] == '/plex/') {
-    $title = 'Plex Movies';
+if (isset($_SERVER['REQUEST_URI'])) {
+    if ($_SERVER['REQUEST_URI'] == '/duplicates/') {
+        $title = 'Duplicates';
+    } elseif ($_SERVER['REQUEST_URI'] == '/new-movies/') {
+        $title = 'New Movies';
+    } elseif ($_SERVER['REQUEST_URI'] == '/plex/') {
+        $title = 'Plex Movies';
+    }
+} else {
+    $_SERVER['REQUEST_URI'] = '';
 }
 ?>
 

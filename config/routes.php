@@ -80,8 +80,8 @@ $router->post('/download', function () {
             'class' => $class,
         ];
 
-        print header('Content-Type: application/json').
-            json_encode($ret);
+        //print header('Content-Type: application/json').
+        print json_encode($ret);
     }
 });
 
@@ -132,3 +132,12 @@ $router->get('/plex', function () {
 });
 
 $router->run();
+
+/**
+ *Deprecated: Return type of PHPHtmlParser\Dom\Node\Collection::offsetGet($offset) should either be compatible with ArrayAccess::offsetGet(mixed $offset): mixed,
+ *or the #[\ReturnTypeWillChange] attribute should be used to temporarily suppress the notice in
+ * /var/www/html/vendor/paquettg/php-html-parser/src/PHPHtmlParser/Dom/Node/Collection.php on line 133
+
+ * Warning: Cannot modify header information - headers already sent by (output started at
+ * /var/www/html/vendor/paquettg/php-html-parser/src/PHPHtmlParser/Dom/Node/Collection.php:16) in /var/www/html/config/routes.php on line 83
+*/
