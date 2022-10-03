@@ -2,7 +2,7 @@
 
 use YTS\YTS;
 
-$page = $_GET['page'] ?? 1;
+$page = (isset($_GET['page']) ? $_GET['page'] : 1);
 include_once('inc/header.php');
 
 $movies = $yts->getMoviesByPage($page);
