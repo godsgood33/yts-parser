@@ -3,15 +3,19 @@
 use YTS\YTS;
 
 $yts = new YTS();
+$page = (int) $_GET['page'] ?? 1;
+//die("<pre>".print_r($_SERVER, true)."</pre>");
 
 $title = 'Movie Listing';
 if (isset($_SERVER['REQUEST_URI'])) {
-    if ($_SERVER['REQUEST_URI'] == '/duplicates/') {
+    if (preg_match("/\/duplicates\//", $_SERVER['REQUEST_URI'])) {
         $title = 'Duplicates';
-    } elseif ($_SERVER['REQUEST_URI'] == '/new-movies/') {
+    } elseif (preg_match("/\/new\-movies\//", $_SERVER['REQUEST_URI'])) {
         $title = 'New Movies';
-    } elseif ($_SERVER['REQUEST_URI'] == '/plex/') {
+    } elseif (preg_match("/\/plex\//", $_SERVER['REQUEST_URI'])) {
         $title = 'Plex Movies';
+    } elseif (preg_match("/\/downloaded\//", $_SERVER['REQUEST_URI'])) {
+        $title = 'Downloaded';
     }
 } else {
     $_SERVER['REQUEST_URI'] = '';
@@ -48,6 +52,9 @@ if (isset($_SERVER['REQUEST_URI'])) {
         }
         if ($title != 'Plex Movies') {
             print "<a class='pageButtons' href='/plex/'>Plex Movies</a>&nbsp;&nbsp;";
+        }
+        if ($title != 'Downloaded') {
+            print "<a class='pageButtons' href='/downloaded/'>Downloaded</a>&nbsp;&nbsp;";
         } ?>
         <a href='#' class='pageButtons' onclick='javascript:toggleStatus()'>Toggle</a>
         <span id='movieCount'><?php print $yts->getMovieCount(); ?></span>
@@ -71,11 +78,11 @@ if (isset($_SERVER['REQUEST_URI'])) {
             $pageCount = (int) $yts->getMovieCount() / YTS::PAGE_COUNT;
 
             if ($page > 1) {
-                print "<a href='{$_SERVER['PATH_INFO']}' class='pageButtons'>&lt;&lt;</a>&nbsp;";
-                print "<a class='pageButtons' href='{$_SERVER['PATH_INFO']}?page=".($page-1)."'>&lt;</a>&nbsp;";
+                print "<a href='{$_SERVER['REDIRECT_URL']}' class='pageButtons'>&lt;&lt;</a>&nbsp;";
+                print "<a class='pageButtons' href='{$_SERVER['REDIRECT_URL']}?page=".($page-1)."'>&lt;</a>&nbsp;";
             }
             if (($page + 1) < $pageCount) {
-                print "<a class='pageButtons' href='{$_SERVER['PATH_INFO']}?page=".($page+1)."'>&gt;</a>";
+                print "<a class='pageButtons' href='{$_SERVER['REDIRECT_URL']}?page=".($page+1)."'>&gt;</a>";
             }
             ?>
             <span id='downloadSize'></span>&nbsp;&nbsp;
