@@ -2,11 +2,11 @@ $(function () {
     $('#download').click(updateDownload);
     $('.download').click(function (e) {
         e.preventDefault();
-        download()
+        download(e)
     });
     $('.delete').click(function (e) {
         e.preventDefault();
-        deleteMovie()
+        deleteMovie(e)
     });
     $('#search').keypress(search);
     ts = setTimeout(torrentStatus, 1000);
@@ -53,13 +53,12 @@ function search(event) {
     });
 }
 
-function download() {
-    var btn = $(this);
+function download(e) {
+    var btn = e.currentTarget;
     $.ajax('/download', {
         data: {
-            action: 'download',
-            title: $(this).data('title'),
-            year: $(this).data('year')
+            title: $(btn).data('title'),
+            year: $(btn).data('year')
         },
         success: function (res) {
             if (!res?.torrentName) return;
@@ -76,12 +75,12 @@ function download() {
     });
 }
 
-function deleteMovie() {
-    var btn = $(this);
+function deleteMovie(e) {
+    var btn = e.currentTarget;
     $.ajax('/deleteMovie', {
         data: {
-            title: $(this).data('title'),
-            year: $(this).data('year')
+            title: $(btn).data('title'),
+            year: $(btn).data('year')
         },
         success: function (res) {
             if (res.success) {
