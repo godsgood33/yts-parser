@@ -5,6 +5,9 @@ namespace YTS;
 use IteratorAggregate;
 use Traversable;
 
+/**
+ * Class to store a collection of movies
+ */
 class MovieCollection implements IteratorAggregate
 {
 
@@ -20,7 +23,7 @@ class MovieCollection implements IteratorAggregate
      *
      * @var array
      */
-    private array $ids = [];
+    private array $ids;
 
     /**
      * Constructor
@@ -28,6 +31,7 @@ class MovieCollection implements IteratorAggregate
     public function __construct()
     {
         $this->collection = [];
+        $this->ids = [];
     }
 
     /**
@@ -49,8 +53,7 @@ class MovieCollection implements IteratorAggregate
      */
     public function getMovie(Movie $movie)
     {
-        $id = sha1("{$movie->title}-{$movie->year}");
-        return $this->movieExists($movie) ? $this->getData($this->ids[$id]) : null;
+        return ($this->movieExists($movie) ? $this->getData($this->ids[$movie->hash]) : null);
     }
 
     /**
@@ -63,8 +66,11 @@ class MovieCollection implements IteratorAggregate
      */
     public function getMovieByTitle(string $title, int $year)
     {
-        $id = sha1("{$title}-{$year}");
-        return isset($this->ids[$id]) ? $this->getData($this->ids[$id]) : null;
+        $m = new Movie($title, $year);
+        if (isset($this->ids[$m->hash])) {
+            return $this->getData($this->ids[$m->hash]);
+        }
+        return null;
     }
 
     /**
@@ -92,10 +98,9 @@ class MovieCollection implements IteratorAggregate
      */
     public function removeMovie(Movie $movie): bool
     {
-        $id = sha1("{$movie->title}-{$movie->year}");
-        if (isset($this->ids[$id])) {
-            unset($this->collection[$this->ids[$id]]);
-            unset($this->ids[$id]);
+        if ($this->movieExists($movie)) {
+            unset($this->collection[$this->ids[$movie->hash]]);
+            unset($this->ids[$movie->hash]);
             return true;
         }
 
@@ -127,9 +132,8 @@ class MovieCollection implements IteratorAggregate
      */
     public function setId(Movie $movie)
     {
-        $id = sha1("{$movie->title}-{$movie->year}");
-        $currentPosition = count($this->collection) - 1;
-        $this->ids[$id] = $currentPosition;
+        $currentPosition = ($this->count() - 1);
+        $this->ids[$movie->hash] = $currentPosition;
     }
 
     /**
@@ -141,8 +145,7 @@ class MovieCollection implements IteratorAggregate
      */
     public function movieExists(Movie $movie): bool
     {
-        $id = sha1("{$movie->title}-{$movie->year}");
-        return isset($this->ids[$id]);
+        return isset($this->ids[$movie->hash]);
     }
 
     /**
