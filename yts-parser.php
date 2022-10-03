@@ -4,6 +4,10 @@ require_once __DIR__."/vendor/autoload.php";
 
 use jc21\PlexApi;
 use jc21\Section;
+use Monolog\Formatter\LineFormatter;
+use Monolog\Handler\StreamHandler;
+use Monolog\Level;
+use Monolog\Logger;
 use YTS\Movie;
 use YTS\Plex;
 use YTS\TransServer;
@@ -20,15 +24,36 @@ DotEnv::$LOAD_SERVER = false;
 
 DotEnv::load(__DIR__.'/.env');
 $cmd = CMD::getCommandParameters();
+$log = new Logger('db-update');
+$output = "%message%";
 
 if ($cmd->showHelp) {
     die(YTS::usage());
 }
 
+if ($cmd->log) {
+    $dt = new DateTime();
+    $file = new StreamHandler("db-update{$dt->format('Ymd')}.log", Level::Info);
+    $file->setFormatter(new LineFormatter($output));
+    $log->pushHandler($file);
+}
+
+if ($cmd->url) {
+    $yts = new YTS();
+    $yts->testLoad($cmd->url);
+    
+    die;
+}
+
 if ($cmd->install) {
     YTS::install();
 
-    die("Created database table in movies.db");
+    die("Created database");
+}
+
+if ($cmd->merge) {
+    YTS::mergeDatabase();
+    die("Merged database");
 }
 
 if ($cmd->plexToken) {
@@ -57,12 +82,12 @@ if ($cmd->libraryList) {
 
     $res = $api->getLibrarySections();
 
-    print "ID\tTitle\tPath".PHP_EOL;
+    print "ID\t".str_pad("Title", 20)."Path".PHP_EOL;
 
     if ($res['size'] > 1) {
         foreach ($res['Directory'] as $s) {
             $section = Section::fromLibrary($s);
-            print $section->key."\t".$section->title."\t".$section->location->path.PHP_EOL;
+            print $section->key."\t".str_pad($section->title, 20).$section->location->path.PHP_EOL;
         }
     }
 
@@ -76,8 +101,10 @@ if ($cmd->libraryList) {
 if ($cmd->update) {
     $page = $cmd->startPage;
     $keepGoing = true;
-    $newMovie = 0;
-    $existingMovie = 0;
+    $new = 0;
+    $existing = 0;
+    $skipped = 0;
+    $error = 0;
     $hdMovies = 0;
     $fhdMovies = 0;
     $uhdMovies = 0;
@@ -89,8 +116,11 @@ if ($cmd->update) {
     }
     $plex = new Plex($api);
 
+    print "'-' = skipped, '+' = added, '!' = '404 error', '*' = existing";
+
     do {
-        print "Loading page $page".PHP_EOL;
+        $log->notice(($cmd->verbose ? "Loading page $page".PHP_EOL : PHP_EOL.$page));
+        print($cmd->verbose ? "Loading page $page".PHP_EOL : $page);
 
         $yts->load($page);
         $movies = $yts->findMovies();
@@ -104,7 +134,14 @@ if ($cmd->update) {
             $lang = $movie->find('span');
 
             $title = trim($movie->text);
-            $nm = new Movie(
+            if (empty($title)) {
+                $skipped++;
+                $log->notice(($cmd->verbose ? "Skipping empty title".PHP_EOL : "!"));
+                print($cmd->verbose ? "Skipping empty title".PHP_EOL : "!");
+                continue;
+            }
+
+            $nm = Movie::fromOnline(
                 $title,
                 $movie->getAttribute('href'),
                 $imgLink->getAttribute('src')
@@ -120,7 +157,9 @@ if ($cmd->update) {
                 $nm = $yts->getMovie($nm->title, $nm->year);
 
                 if ($nm->retrieved) {
-                    print "Skipping {$nm}".PHP_EOL;
+                    $skipped++;
+                    $log->notice(($cmd->verbose ? "Skipping {$nm}".PHP_EOL : "-"));
+                    print($cmd->verbose ? "Skipping {$nm}".PHP_EOL : "-");
                     continue;
                 }
 
@@ -135,8 +174,13 @@ if ($cmd->update) {
                 $yts->addMovie($nm);
             }
 
-            if ($cmd->torrentLinks) {
-                $yts->getTorrentLinks($nm);
+            $res = $yts->getTorrentLinks($nm);
+            if ($res === false) {
+                $error++;
+                $log->notice(($cmd->verbose ? "404 Error on {$nm}".PHP_EOL : "!"));
+                print($cmd->verbose ? "404 Error on {$nm}".PHP_EOL : "!");
+                $yts->deleteMovie($nm->title, $nm->year);
+                continue;
             }
 
             if ($plex->isConnected()) {
@@ -152,28 +196,38 @@ if ($cmd->update) {
             }
 
             if ($movieExists) {
-                print "Updating {$nm}".PHP_EOL;
+                $log->notice(($cmd->verbose ? "Updating {$nm}".PHP_EOL : "*"));
+                print($cmd->verbose ? "Updating {$nm}".PHP_EOL : "*");
                 $res = $yts->updateMovie($nm);
-                $existingMovie++;
+                $existing++;
             } else {
-                print "Adding {$nm}".PHP_EOL;
+                $log->notice(($cmd->verbose ? "Adding {$nm}".PHP_EOL : "+"));
+                print($cmd->verbose ? "Adding {$nm}".PHP_EOL : "+");
                 $res = $yts->insertMovie($nm);
-                $newMovie++;
+                $new++;
+            }
+
+            if (($new + $existing + $skipped + $error) % 40 == 0) {
+                print($cmd->verbose ? null : PHP_EOL);
             }
         }
 
         $page++;
         if ($cmd->pageCount) {
-            $keepGoing = !($page >= ($startPage + $cmd->pageCount));
+            $keepGoing = !($page >= ($cmd->startPage + $cmd->pageCount));
         }
     } while ($keepGoing);
 
     print <<<EOF
+
+    Summary:
     HD movies: {$hdMovies}
     FHD movies: {$fhdMovies}
     UHD movies: {$uhdMovies}
-    New movies: {$newMovie}
-    Existing movies: {$existingMovie}
+    New movies: {$new}
+    Existing movies: {$existing}
+    Skipped movied: {$skipped}
+    Retrieval errors: {$error}
     
     EOF;
 }
