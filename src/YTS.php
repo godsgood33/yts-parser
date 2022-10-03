@@ -845,10 +845,10 @@ class YTS
             $mydb->exec(
                 "UPDATE `movies` SET
                     `url`='{$mydb->escapeString($row['url'])}',
-                    `imgUrl`='{$mydb->escapeString($row['imgUrl'])}'
+                    `imgUrl`='{$mydb->escapeString($row['imgUrl'])}',
                     `torrent720`='{$mydb->escapeString($row['torrent720'])}',
                     `torrent1080`='{$mydb->escapeString($row['torrent1080'])}',
-                    `torrent2160`='{$mydb->escapeString($row['torrent2160'])}',
+                    `torrent2160`='{$mydb->escapeString($row['torrent2160'])}'
                 WHERE
                     `title`='{$mydb->escapeString($row['title'])}' AND
                     `year`={$mydb->escapeString($row['year'])}"
