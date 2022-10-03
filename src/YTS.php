@@ -2,11 +2,15 @@
 
 namespace YTS;
 
+use DateTime;
+use Exception;
 use SQLite3;
-use PHPHtmlParser\Dom;
+use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\RequestException;
 use jc21\PlexApi;
 use jc21\Section;
+use PHPHtmlParser\Dom;
 use YTS\Movie;
 
 /**
@@ -29,9 +33,16 @@ class YTS
     private const BASE_PAGE = 'https://yts.mx/browse-movies?page=';
 
     /**
-     * Variable to store the dom
+     * HTTP Client
      *
-     * @var Dom
+     * @var GuzzleHttp\Client
+     */
+    private Client $client;
+
+    /**
+     * Dom
+     *
+     * @var PhpHtmlParser\Dom
      */
     private Dom $dom;
 
@@ -61,8 +72,19 @@ class YTS
      */
     public function __construct()
     {
+        $dbFile = dirname(__DIR__).'/my-movies.db';
+        if (!file_exists($dbFile)) {
+            die("Cannot find movie database my-movies.db");
+        } elseif (!is_readable($dbFile)) {
+            die("Cannot read movie database");
+        } elseif (!is_writeable($dbFile)) {
+            die("Cannot write to movie database");
+        }
+
         $this->dom = new Dom();
-        $this->db = new SQLite3(dirname(__DIR__).'/movies.db');
+        $this->client = new Client();
+        $this->db = new SQLite3(dirname(__DIR__).'/my-movies.db');
+        $this->db->enableExceptions(true);
         $this->movies = new MovieCollection();
         $this->populateMovies();
 
@@ -80,18 +102,29 @@ class YTS
     public function load(int $pageNo)
     {
         try {
-            $this->dom->loadFromUrl(self::BASE_PAGE.$pageNo);
+            $this->response = $this->client->request('GET', self::BASE_PAGE.$pageNo, [
+                'headers' => [
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 6.1; Win64; rv:89.0) Gecko/20100101 Firefox/89.0'
+                ]
+            ]);
+            $this->dom->loadStr($this->response->getBody());
         } catch (ConnectException $ce) {
-            if ($ce->getHandlerContext()['errno'] == 7) {
-                print "Connection error on page {$pageNo}...retrying in 5 sec".PHP_EOL;
-                sleep(5);
-                $this->load($pageNo);
-            } elseif ($ce->getHandlerContext()['errno'] == 28) {
-                print "SSH error on page {$pageNo}...retrying in 5 sec".PHP_EOL;
-                sleep(5);
-                $this->load($pageNo);
-            } else {
-                die(print_r($ce, true));
+            switch ($ce->getHandlerContext()['errno']) {
+                case 7:
+                    print "Connection error on page {$pageNo}...retrying in 5 sec".PHP_EOL;
+                    sleep(5);
+                    $this->load($pageNo);
+                    break;
+                case 28:
+                    print "SSH error on page {$pageNo}...retrying in 5 sec".PHP_EOL;
+                    sleep(5);
+                    $this->load($pageNo);
+                    break;
+                case 504:
+                    print "504 error";
+                    // no break
+                default:
+                    die(print_r($ce, true));
             }
         }
     }
@@ -111,18 +144,11 @@ class YTS
         }
 
         try {
-            $this->dom->loadFromUrl($m->url);
-        } catch (ConnectException $ce) {
-            if ($ce->getHandlerContext()['errno'] == 7) {
-                print "Connection error on page {$m->url}...retrying in 5 sec".PHP_EOL;
-                sleep(5);
-                $this->getTorrentLinks($m);
-            } elseif ($ce->getHandlerContext()['errno'] == 28) {
-                print "SSH error on page {$m->url}..retrying in 5 sec".PHP_EOL;
-                sleep(5);
-                $this->getTorrentLinks($m);
-            } else {
-                die(print_r($ce, true));
+            $this->response = $this->client->request('GET', $m->url);
+            $this->dom->loadStr($this->response->getBody());
+        } catch (RequestException $e) {
+            if ($e->getResponse()->getStatusCode() == 404) {
+                return $ret;
             }
         }
 
@@ -192,7 +218,7 @@ class YTS
      */
     public function isMoviePresent(Movie $m): bool
     {
-        return isset($this->movies[$m->title][$m->year]);
+        return $this->movies->movieExists($m);
     }
 
     /**
@@ -204,9 +230,8 @@ class YTS
      */
     public function addMovie(Movie $m): bool
     {
-        if (!isset($this->movies[$m->title][$m->year])) {
-            $this->movies[$m->title][$m->year] = $m;
-            return true;
+        if (!$this->movies->movieExists($m)) {
+            return $this->movies->addData($m);
         }
 
         return false;
@@ -221,9 +246,8 @@ class YTS
      */
     public function saveMovie(Movie $m): bool
     {
-        if (isset($this->movies[$m->title][$m->year])) {
-            $this->movies[$m->title][$m->year] = $m;
-            return true;
+        if (!$this->movies->movieExists($m)) {
+            return $this->movies->addData($m);
         }
 
         return false;
@@ -240,17 +264,25 @@ class YTS
     public function deleteMovie(string $title, int $year): bool
     {
         $m = $this->movies->getMovieByTitle($title, $year);
-        if (!$m) {
+        if (!is_a($m, 'YTS\Movie')) {
+            print json_encode([
+                'error' => 'failed to retrieve movie'
+            ]);
             return false;
         }
 
-        $this->movies->removeMovie($m);
+        //$this->movies->removeMovie($m);
 
-        return $this->db->exec(
-            "DELETE FROM `movies`
-                WHERE `title`='{$this->db->escapeString($title)}' AND
-                `year`={$this->db->escapeString($year)}"
-        );
+        $query = "DELETE FROM movies 
+            WHERE 
+                title='{$this->db->escapeString($m->title)}' AND 
+                year={$this->db->escapeString($m->year)}";
+
+        try {
+            return $this->db->exec($query);
+        } catch (Exception $e) {
+            die(print_r($e, true));
+        }
     }
 
     /**
@@ -282,20 +314,11 @@ class YTS
     /**
      * Method to return an array of all movies in the database
      *
-     * @return array:Movie
+     * @return MovieCollection
      */
-    public function getMovies(): array
+    public function getMovies(): MovieCollection
     {
-        $res = $this->db->query(
-            "SELECT * FROM `movies` 
-            ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), `year`"
-        );
-        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
-            $movie = Movie::fromDB($row);
-            $ret[$movie->title][$movie->year] = $movie;
-        }
-
-        return $ret;
+        return $this->movies;
     }
 
     /**
@@ -308,12 +331,7 @@ class YTS
      */
     public function getMovie(string $title, int $year)
     {
-        $m = $this->movies->getMovieByTitle($title, $year);
-        if ($m) {
-            return $m;
-        }
-
-        return false;
+        return $this->movies->getMovieByTitle($title, $year);
     }
 
     /**
@@ -327,11 +345,11 @@ class YTS
     {
         $ret = new MovieCollection();
         $PAGE_COUNT = self::PAGE_COUNT;
-        $offset = $pageNo * self::PAGE_COUNT;
+        $offset = ($pageNo - 1) * self::PAGE_COUNT;
         $res = $this->db->query(
             "SELECT *
             FROM `movies`
-            ORDER BY REPLACE(`title`, 'The ', ''),`year`
+            ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), `year`
             LIMIT {$offset},{$PAGE_COUNT}"
         );
 
@@ -563,12 +581,48 @@ class YTS
         $PAGE_COUNT = self::PAGE_COUNT;
         $offset = $pageNo * self::PAGE_COUNT;
         $res = $this->db->query(
-            "SELECT * FROM `movies` 
+            "SELECT * FROM `movies`
             WHERE `title` IN (
                 SELECT `title` FROM `movies`
                 GROUP BY `title`
                 HAVING COUNT(`title`) > 1
             )
+            ORDER BY REPLACE(REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), ' ', ''), `year`
+            LIMIT {$offset},{$PAGE_COUNT}"
+        );
+
+        if (is_bool($res)) {
+            return $ret;
+        }
+
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $movie = Movie::fromDB($row);
+            $ret->addData($movie);
+        }
+
+        return $ret;
+    }
+
+    /**
+     * Get movies marked for download
+     *
+     * @param int $pageNo
+     * @param bool $inc4k
+     *
+     * @return MovieCollection
+     */
+    public function getDownloaded(int $pageNo = 0, bool $exc4k = false): MovieCollection
+    {
+        $ret = new MovieCollection();
+        $PAGE_COUNT = self::PAGE_COUNT;
+        $offset = $pageNo * self::PAGE_COUNT;
+        $remove4k = null;
+        if ($exc4k) {
+            $remove4k = " AND `complete2160` = 0";
+        }
+        $res = $this->db->query(
+            "SELECT * FROM `movies`
+            WHERE `download` = 1{$remove4k}
             ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), `year`
             LIMIT {$offset},{$PAGE_COUNT}"
         );
@@ -590,32 +644,7 @@ class YTS
      */
     public static function install()
     {
-        if (!file_exists('movies.db')) {
-            $db = new SQLite3('movies.db');
-            $db->exec("CREATE TABLE IF NOT EXISTS `movies` (
-                `title` varchar(255) NOT NULL,
-                `year` varchar(5) NOT NULL,
-                `url` varchar(255) NOT NULL,
-                `imgUrl` varchar(255) DEFAULT NULL,
-                `download` tinyint(1) DEFAULT '0',
-                `hide` tinyint(1) DEFAULT '0',
-                `torrent720` varchar(255) DEFAULT NULL,
-                `complete720` tinyint(1) DEFAULT '0',
-                `torrent1080` varchar(255) DEFAULT NULL,
-                `complete1080` tinyint(1) DEFAULT '0',
-                `torrent2160` varchar(255) DEFAULT NULL,
-                `complete2160` tinyint(1) DEFAULT '0',
-                PRIMARY KEY (`title`,`year`)
-            )");
-
-            $db->exec("CREATE TABLE IF NOT EXISTS `meta` (
-                `field` varchar(255) NOT NULL,
-                `value` mediumtext DEFAULT NULL,
-                PRIMARY KEY (`field`)
-            )");
-
-            $db->exec("INSERT INTO `meta` (`field`,`value`) VALUES ('last_update',null)");
-        }
+        (file_exists('movies.db') ? self::checkDatabase() : self::createDatabase());
 
         $plex = readline('Do you have a Plex server [n]? ');
 
@@ -640,21 +669,7 @@ class YTS
             $api->setAuth($plexUser, $plexPassword);
             $plexToken = $api->getToken();
 
-            $sec = $api->getLibrarySections();
-            $libraries = [];
-            print "ID\t".str_pad("Title", 20, ' ', STR_PAD_RIGHT)."Path".PHP_EOL;
-            foreach ($sec['Directory'] as $s) {
-                $section = Section::fromLibrary($s);
-                $libraries[] = $section->key;
-                print "{$section->key}\t".
-                    str_pad($section->title, 20, ' ', STR_PAD_RIGHT).
-                    $section->location->path.PHP_EOL;
-            }
-            $plexLibrary = readline('Which library is the main movie library? ');
-
-            if (!in_array($plexLibrary, $libraries, true)) {
-                die('You must select a number from the library list above');
-            }
+            $plexLibrary = self::getLibraries($plexServer, $plexToken, true);
 
             $plex = <<<EOF
             PLEX_SERVER={$plexServer}
@@ -714,6 +729,134 @@ class YTS
     }
 
     /**
+     * Method to get all the Plex libraries and find the one for the movies
+     *
+     * @param string $plexServer
+     * @param string $plexToken
+     *
+     * @return int
+     */
+    public static function getLibraries(string $plexServer, string $plexToken, bool $install = false)
+    {
+        if (!$install && !Plex::validateEnvironment()) {
+            die('Failed to validate all environment variables are present');
+        }
+        $api = new PlexApi($plexServer);
+        $api->setToken($plexToken);
+    
+        $res = $api->getLibrarySections();
+    
+        print "ID\t".str_pad("Title", 20)."Path".PHP_EOL;
+        $libraries = [];
+
+        if ($res['size'] > 1) {
+            foreach ($res['Directory'] as $s) {
+                $libraries[] = $s->key;
+
+                $section = Section::fromLibrary($s);
+                print $section->key."\t".str_pad($section->title, 20).$section->location->path.PHP_EOL;
+            }
+        }
+    
+        $id = readline("Which library do you want to query when searching for movies? ");
+
+        if (!in_array($id, $libraries, true)) {
+            die('You must select a number from the library list above');
+        }
+
+        return $id;
+    }
+
+    /**
+     * Method to create a database
+     */
+    public static function createDatabase()
+    {
+        $db = new SQLite3('my-movies.db');
+        $db->exec("CREATE TABLE IF NOT EXISTS `movies` (
+            `hash` varchar(255) NOT NULL,
+            `title` varchar(255) NOT NULL,
+            `year` varchar(5) NOT NULL,
+            `url` varchar(255) NOT NULL,
+            `imgUrl` varchar(255) DEFAULT NULL,
+            `download` tinyint(1) DEFAULT '0',
+            `hide` tinyint(1) DEFAULT '0',
+            `torrent720` varchar(255) DEFAULT NULL,
+            `complete720` tinyint(1) DEFAULT '0',
+            `torrent1080` varchar(255) DEFAULT NULL,
+            `complete1080` tinyint(1) DEFAULT '0',
+            `torrent2160` varchar(255) DEFAULT NULL,
+            `complete2160` tinyint(1) DEFAULT '0',
+            PRIMARY KEY (`hash`)
+        )");
+
+        $db->exec("CREATE TABLE IF NOT EXISTS `meta` (
+            `field` varchar(255) NOT NULL,
+            `value` mediumtext DEFAULT NULL,
+            PRIMARY KEY (`field`)
+        )");
+
+        $dt = new DateTime();
+        $db->exec("INSERT INTO `meta` (`field`,`value`) VALUES ('db_version','{$dt->format('Y-m-d')}')");
+    }
+
+    /**
+     * Method to copy a baseline database
+     */
+    public static function checkDatabase()
+    {
+        if (!file_exists('my-movies.db')) {
+            rename('movies.db', 'my-movies.db');
+            return;
+        }
+
+        $mydb = new SQLite3('my-movies.db');
+        $myVer = $mydb->querySingle("SELECT `value` FROM `meta` WHERE `field`='db_version'");
+        $myDate = new DateTime($myVer);
+
+        $db = new SQLite3('movies.db');
+        $ver = $db->querySingle("SELECT `value` FROM `meta` WHERE `field`='db_version'");
+        $date = new DateTime($ver);
+
+        if ($date <= $myDate) {
+            return;
+        }
+
+        $merge = readline("Would you like to merge changes from latest movies.db [n]? ");
+        $merge = (strtolower($merge) == 'y' ? true : false);
+
+        if ($merge) {
+            self::mergeDatabase();
+        }
+    }
+
+    /**
+     * Method to merge database
+     */
+    public static function mergeDatabase()
+    {
+        $mydb = new SQLite3('my-movies.db');
+        $db = new SQLite3('movies.db');
+
+        $res = $db->query("SELECT * FROM `movies`");
+
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            print "{$row['title']} ({$row['year']})".PHP_EOL;
+            $mydb->exec(
+                "UPDATE `movies` SET
+                    `url`='{$mydb->escapeString($row['url'])}',
+                    `imgUrl`='{$mydb->escapeString($row['imgUrl'])}'
+                    `torrent720`='{$mydb->escapeString($row['torrent720'])}',
+                    `torrent1080`='{$mydb->escapeString($row['torrent1080'])}',
+                    `torrent2160`='{$mydb->escapeString($row['torrent2160'])}',
+                WHERE
+                    `title`='{$mydb->escapeString($row['title'])}' AND
+                    `year`={$mydb->escapeString($row['year'])}"
+            );
+        }
+    }
+
+    /**
      * Function to ping a host and respond boolean
      *
      * @param string $strHost
@@ -739,19 +882,21 @@ class YTS
     public static function usage()
     {
         print <<<EOF
-This script is used to scrape yts.mx website for all movies.  You can then set a flag to have it retrieve the torrent
-links and download them with a Transmission server.
+        This script is used to scrape yts.mx website for all movies.  You can then set a flag to have it retrieve the torrent
+        links and download them with a Transmission server.
 
---install               Flag to call first to create the required tables
---update                Flag to start the scraping
---highestVersion        Flag to scrap each movie for the torrent links and get the highest quality version available
---download              Flag to start the download process
---torrentLinks          Flag to retrieve the torrent links from each title page
---page={number}         What page do you want to start on
---count={number}        How many pages do you want to read
--h | --help             This page
+        --install               Flag to call first to create the required tables
+        --update                Flag to start the scraping
+        --highestVersion        Flag to scrap each movie for the torrent links and get the highest quality version available
+        --download              Flag to start the download process
+        --torrentLinks          Flag to retrieve the torrent links from each title page
+        --page={number}         What page do you want to start on
+        --count={number}        How many pages do you want to read
+        --merge                 Merge databases
+        --verbose               Verbose output
+        -h | --help             This page
 
 
-EOF;
+        EOF;
     }
 }
