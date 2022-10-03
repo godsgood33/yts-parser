@@ -101,6 +101,13 @@ class Movie
     public bool $retrieved;
 
     /**
+     * Variable to store the hash of the movie
+     *
+     * @var string
+     */
+    public string $hash;
+
+    /**
      * Constructor
      *
      * @param string $title
@@ -108,15 +115,13 @@ class Movie
      */
     public function __construct(
         string $title,
-        string $url,
-        ?string $imgUrl
+        int $year,
     ) {
         $this->title = $title;
-        $year = substr($url, -4);
-        $this->year = (int) $year;
-        $this->url = $url;
-        $this->imgUrl = $imgUrl;
+        $this->year = $year;
         $this->download = 0;
+
+        $this->hash = sha1("{$this->title}-{$this->year}");
 
         $this->retrieved = 0;
         $this->hdTorrent = null;
@@ -280,6 +285,7 @@ class Movie
      * Method to return html for the duplicate page
      *
      * @param boolean $tsConnected
+     *
      * @return string
      */
     public function getDuplicateHtml(bool $tsConnected): string
@@ -294,8 +300,8 @@ class Movie
                 <img src='{$this->imgUrl}'/>
             </a><br />
             <span class='{$class}'>{$this->highestVersionAvailable()} - {$this->title} ({$this->year})</span><br />
-            <a class='delete pageButtons' data-title='{$encodedTitle}'
-                data-year='{$encodedYear}'>Delete</a>
+            <button class='delete pageButtons' data-title='{$encodedTitle}'
+                data-year='{$encodedYear}'>Delete</button>
         </div>";
 
         return $ret;
@@ -379,6 +385,30 @@ EOF;
     }
 
     /**
+     * Method to create a movie from online data
+     *
+     * @param string $title
+     * @param string $url
+     * @param string $imgUrl
+     *
+     * @return Movie
+     */
+    public static function fromOnline(
+        string $title,
+        string $url,
+        ?string $imgUrl = null
+    ): Movie {
+        $year = (int) substr($url, -4);
+
+        $me = new static($title, $year);
+
+        $me->url = $url;
+        $me->imgUrl = $imgUrl;
+
+        return $me;
+    }
+
+    /**
      * Turn a database row into an object
      *
      * @param array $sc
@@ -387,9 +417,10 @@ EOF;
      */
     public static function fromDB(array $sc): Movie
     {
-        $self = new static($sc['title'], $sc['url'], $sc['imgUrl']);
-
-        $self->year = $sc['year'];
+        $self = new static($sc['title'], $sc['year']);
+        
+        $self->url = $sc['url'];
+        $self->imgUrl = $sc['imgUrl'];
         $self->hdTorrent = $sc['torrent720'];
         $self->hdComplete = (bool) $sc['complete720'];
         $self->fhdTorrent = $sc['torrent1080'];
@@ -401,9 +432,16 @@ EOF;
         return $self;
     }
 
+    /**
+     * Convert a movie from Plex to this
+     *
+     * @param jc21\Movies\Movie $m
+     *
+     * @return Movie
+     */
     public function fromMovie(\jc21\Movies\Movie $m): Movie
     {
-        $me = new static($m->title, '', '');
+        $me = new static($m->title, $m->year);
 
         return $me;
     }
