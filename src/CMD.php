@@ -6,14 +6,31 @@ namespace YTS;
  * Class to store command params
  *
  * @property bool $showHelp
+ *      Show the help usage page
  * @property bool $install
+ *      Install the project
  * @property bool $update
+ *      Update torrent database
  * @property bool $download
+ *      Download updated torrents
  * @property bool $highestVersion
+ *      Retrieve the highest versions from the site
  * @property bool $torrentLinks
+ *      Retrieve the torrent links when updating torrent database
  * @property bool $plexToken
+ *      Retrieve the plexToken, used to connect to Plex database without credentials
+ * @property bool $libraryList
+ *      List all Plex libraries
+ * @property bool $merge
+ *      Merge current personal torrent database with new database downloaded from github
+ * @property bool $verbose
+ *      Verbose output when updating and downloading
  * @property int $startPage
+ *      The page to start on
  * @property int $pageCount
+ *      The number of pages to retrieve
+ * @property string $url
+ *      A specific url to look at
  */
 class CMD
 {
@@ -81,6 +98,34 @@ class CMD
     private ?int $pageCount;
 
     /**
+     * Retrieve a list of Plex libraries to determine which is the main movie library
+     *
+     * @var bool
+     */
+    private bool $libraryList;
+
+    /**
+     * Store if we should merge databases
+     *
+     * @var bool
+     */
+    private bool $merge;
+
+    /**
+     * Should we output verbose
+     *
+     * @var bool
+     */
+    private bool $verbose;
+
+    /**
+     * Variable to store a url that needs to be directly retrieved for testing purposes
+     *
+     * @var string
+     */
+    private ?string $url;
+
+    /**
      * Magic getter method
      *
      * @param string $var
@@ -106,7 +151,8 @@ class CMD
         $ret = new static();
         $arr = getopt('h', [
             'install::', 'update::', 'download::', 'page:', 'count:', 'highestVersion::',
-            'torrentLinks::', 'plexToken::', 'libraryList::', 'help::'
+            'torrentLinks::', 'plexToken::', 'libraryList::', 'help::', 'url:', 'verbose::',
+            'merge::', 'log::'
         ]);
 
         $ret->showHelp = (bool) (isset($arr['h']) || isset($arr['help']));
@@ -115,15 +161,22 @@ class CMD
         $ret->update = isset($arr['update']);
         $ret->download = isset($arr['download']);
         $ret->highestVersion = isset($arr['highestVersion']);
+        $ret->torrentLinks = isset($arr['torrentLinks']);
+        $ret->plexToken = isset($arr['plexToken']);
+        $ret->libraryList = isset($arr['libraryList']);
+        $ret->verbose = isset($arr['verbose']);
+        $ret->merge = isset($arr['merge']);
+        $ret->log = isset($arr['log']);
         $ret->startPage = (
             isset($arr['page']) && is_numeric($arr['page']) && $arr['page'] > 0 ? $arr['page'] : 1
         );
         $ret->pageCount = (
             isset($arr['count']) && is_numeric($arr['count']) && $arr['count'] > 0 ? $arr['count'] : null
         );
-        $ret->torrentLinks = isset($arr['torrentLinks']);
-        $ret->plexToken = isset($arr['plexToken']);
-        $ret->libraryList = isset($arr['libraryList']);
+        $ret->url = null;
+        $ret->url = (
+            isset($arr['url']) && is_string($arr['url']) && filter_var($arr['url'], FILTER_VALIDATE_URL) ? $arr['url'] : null
+        );
 
         return $ret;
     }
