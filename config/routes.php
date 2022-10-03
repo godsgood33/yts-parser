@@ -28,6 +28,10 @@ $router->get('/duplicates', function () {
     require_once(dirname(__DIR__).'/pages/duplicates.php');
 });
 
+$router->get('/downloaded', function () {
+    require_once(dirname(__DIR__).'/pages/downloaded.php');
+});
+
 $router->post('/search', function () {
     $query = urldecode($_POST['term']);
     $yts = new YTS();
@@ -89,6 +93,7 @@ $router->post('/deleteMovie', function () {
     $yts = new YTS();
     $title = urldecode($_POST['title']);
     $year = filter_var($_POST['year'], FILTER_VALIDATE_INT);
+
     $res = $yts->deleteMovie($title, $year);
     print header('Content-type: application/json').
         json_encode([
