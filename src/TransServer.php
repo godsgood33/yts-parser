@@ -94,13 +94,14 @@ class TransServer
      * Method to check for and start a download
      *
      * @param Movie $movie
+     * @param string $quality
      *
      * @return Torrent|null
      */
-    public function checkForDownload(Movie &$movie)
+    public function checkForDownload(Movie &$movie, string $quality)
     {
         $tor = null;
-        if ($movie->uhdTorrent) {
+        if ($movie->uhdTorrent && $quality == 'uhd') {
             $tor = $this->add($movie->uhdTorrent);
             if (is_a($tor, 'Transmission\Model\Torrrent')) {
                 $movie->download = false;
@@ -108,13 +109,13 @@ class TransServer
                 $movie->fhdComplete = true;
                 $movie->hdComplete = true;
             }
-        } elseif ($movie->fhdTorrent) {
+        } elseif ($movie->fhdTorrent && $quality == 'fhd') {
             $tor = $this->add($movie->fhdTorrent);
             if (is_a($tor, 'Transmission\Model\Torrent')) {
                 $movie->fhdComplete = true;
                 $movie->hdComplete = true;
             }
-        } elseif ($movie->hdTorrent) {
+        } elseif ($movie->hdTorrent && $quality == 'hd') {
             $tor = $this->add($movie->hdTorrent);
             if (is_a($tor, 'Transmission\Model\Torrrent')) {
                 $movie->hdComplete = true;
