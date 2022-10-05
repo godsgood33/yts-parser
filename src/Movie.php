@@ -260,22 +260,40 @@ class Movie
      */
     public function getHtml(bool $tsConnected): string
     {
-        $button = null;
+        $hdbutton = null;
+        $fhdbutton = null;
+        $uhdbutton = null;
         $class = $this->getClass();
         $encodedTitle = urlencode($this->title);
         $encodedYear = urlencode($this->year);
 
         if ($class != 'have4k' && $this->betterVersionAvailable() && $tsConnected) {
-            $button = "<a class='pageButtons download' href='#' data-title='{$encodedTitle}'
-                data-year='{$encodedYear}'>Download</a>";
+            if ($this->hdTorrent && !$this->hdComplete) {
+                $hdbutton = "<button class='pageButtons download' href='#' data-title='{$encodedTitle}'
+                   data-year='{$encodedYear}' data-quality='hd'>HD</button>";
+            }
+            if ($this->fhdTorrent && !$this->fhdComplete) {
+                $fhdbutton = "<button class='pageButtons download' href='#' data-title='{$encodedTitle}'
+                    data-year='{$encodedYear}' data-quality='fhd'>FHD</button";
+            }
+            if ($this->uhdTorrent && !$this->uhdComplete) {
+                $uhdbutton = "<button class='pageButtons download' href='#' data-title='{$encodedTitle}'
+                    data-year='{$encodedYear}' data-quality='uhd'>UHD</button";
+            }
         }
         $ret = "<div class='movie'>
             <a href='/movie/{$encodedTitle}/year/{$this->year}/' ".
                 "target='_blank'>
-                <img src='{$this->imgUrl}'/>
+                <figure>
+                    <img src='{$this->imgUrl}'/>
+                    <figcaption class='hidden'>
+                        <div class='download-container'>
+                            {$hdbutton}{$fhdbutton}{$uhdbutton}
+                        </div>
+                    </figcaption>
+                </figure>
             </a><br />
-            <span class='{$class}'>{$this->highestVersionAvailable()} - {$this->title} ({$this->year})</span><br />
-            {$button}
+            <span class='{$class}'>{$this->title} ({$this->year})</span>
         </div>";
 
         return $ret;
