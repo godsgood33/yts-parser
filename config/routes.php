@@ -42,12 +42,13 @@ $router->post('/download', function () {
     $yts = new YTS();
     $title = urldecode($_POST['title']);
     $year = (int) urldecode($_POST['year']);
+    $quality = $_POST['quality'];
     $res = $yts->updateDownload($title, $year);
 
     if ($res) {
         $ts = new TransServer();
         $movie = $yts->getMovie($title, $year);
-        $tor = $ts->checkForDownload($movie);
+        $tor = $ts->checkForDownload($movie, $quality);
         $remainingSpace = $ts->freeSpace - ($ts->downloadSize + (int) $tor?->getSize());
         if ($remainingSpace > 0 /*&&
             (
