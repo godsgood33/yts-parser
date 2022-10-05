@@ -47,7 +47,7 @@ class YTS
     private Dom $dom;
 
     /**
-     * Constant to contain the number of movies to display on the index page
+     * Constant to contain the number of movies to display on each page
      *
      * @var int
      */
@@ -191,6 +191,26 @@ class YTS
         }
 
         return $ret;
+    }
+
+    /**
+     * Method to check if a page is a valid movie
+     *
+     * @param Movie $m
+     *
+     * @return bool
+     */
+    public function checkUrl(Movie &$m): bool
+    {
+        try {
+            $this->response = $this->client->request('GET', $m->url);
+        } catch (RequestException $e) {
+            if ($e->getResponse()->getStatusCode() == 404) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -584,8 +604,8 @@ class YTS
             "SELECT * FROM `movies`
             WHERE `title` IN (
                 SELECT `title` FROM `movies`
-                GROUP BY `title`
-                HAVING COUNT(`title`) > 1
+                GROUP BY `imgUrl`
+                HAVING COUNT(`imgUrl`) > 1
             )
             ORDER BY REPLACE(REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), ' ', ''), `year`
             LIMIT {$offset},{$PAGE_COUNT}"
