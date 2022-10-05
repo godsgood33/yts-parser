@@ -152,7 +152,7 @@ class CMD
         $arr = getopt('h', [
             'install::', 'update::', 'download::', 'page:', 'count:', 'highestVersion::',
             'torrentLinks::', 'plexToken::', 'libraryList::', 'help::', 'url:', 'verbose::',
-            'merge::', 'log::'
+            'merge::', 'log::', 'clean::'
         ]);
 
         $ret->showHelp = (bool) (isset($arr['h']) || isset($arr['help']));
@@ -167,6 +167,7 @@ class CMD
         $ret->verbose = isset($arr['verbose']);
         $ret->merge = isset($arr['merge']);
         $ret->log = isset($arr['log']);
+        $ret->clean = isset($arr['clean']);
         $ret->startPage = (
             isset($arr['page']) && is_numeric($arr['page']) && $arr['page'] > 0 ? $arr['page'] : 1
         );
