@@ -40,7 +40,7 @@ if ($cmd->log) {
 
 if ($cmd->url) {
     $yts = new YTS();
-    $yts->testLoad($cmd->url);
+    //$yts->testLoad($cmd->url);
     
     die;
 }
@@ -246,7 +246,7 @@ if ($cmd->download) {
         print "Downloading {$movie->highestVersionAvailable()} of $movie".PHP_EOL;
 
         if ($movie->betterVersionAvailable()) {
-            $res = $ts->checkForDownload($movie);
+            $res = $ts->checkForDownload($movie, strtolower($m->highestVersionAvailable()));
 
             if (is_a($res, 'Transmission\Model\Torrent')) {
                 $yts->updateMovie($movie);
@@ -289,5 +289,26 @@ if ($cmd->highestVersion) {
         $yts->getTorrentLinks($movie);
         $yts->updateMovie($movie);
         $idx++;
+    }
+}
+
+if ($cmd->clean) {
+    $yts = new YTS();
+    $count = 0;
+    foreach ($yts->getMovies() as $m) {
+        $count++;
+        if (!$yts->checkUrl($m)) {
+            if ($yts->deleteMovie($m->title, $m->year)) {
+                print($cmd->verbose ? "Deleted {$m}".PHP_EOL : "-");
+            } else {
+                die("Failed to delete {$m}");
+            }
+        } else {
+            print($cmd->verbose ? "{$m} is good".PHP_EOL : "*");
+        }
+
+        if ($count % 50 == 0) {
+            print PHP_EOL;
+        }
     }
 }
