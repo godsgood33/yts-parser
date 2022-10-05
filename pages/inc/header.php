@@ -3,7 +3,7 @@
 use YTS\YTS;
 
 $yts = new YTS();
-$page = (int) $_GET['page'] ?? 1;
+$page = isset($_GET['page']) ? $_GET['page'] : 1;
 //die("<pre>".print_r($_SERVER, true)."</pre>");
 
 $title = 'Movie Listing';
@@ -76,13 +76,14 @@ if (isset($_SERVER['REQUEST_URI'])) {
         <div id='pager'>
             <?php
             $pageCount = (int) $yts->getMovieCount() / YTS::PAGE_COUNT;
+            $url = (isset($_SERVER['REDIRECT_URL']) ? $_SERVER['REDIRECT_URL'] : '/');
 
             if ($page > 1) {
-                print "<a href='{$_SERVER['REDIRECT_URL']}' class='pageButtons'>&lt;&lt;</a>&nbsp;";
-                print "<a class='pageButtons' href='{$_SERVER['REDIRECT_URL']}?page=".($page-1)."'>&lt;</a>&nbsp;";
+                print "<a href='{$url}' class='pageButtons'>&lt;&lt;</a>&nbsp;";
+                print "<a class='pageButtons' href='{$url}?page=".($page-1)."'>&lt;</a>&nbsp;";
             }
             if (($page + 1) < $pageCount) {
-                print "<a class='pageButtons' href='{$_SERVER['REDIRECT_URL']}?page=".($page+1)."'>&gt;</a>";
+                print "<a class='pageButtons' href='{$url}?page=".($page+1)."'>&gt;</a>";
             }
             ?>
             <span id='downloadSize'></span>&nbsp;&nbsp;
