@@ -58,7 +58,8 @@ function download(e) {
     $.ajax('/download', {
         data: {
             title: $(btn).data('title'),
-            year: $(btn).data('year')
+            year: $(btn).data('year'),
+            quality: $(btn).data('quality')
         },
         success: function (res) {
             if (!res?.torrentName) return;
