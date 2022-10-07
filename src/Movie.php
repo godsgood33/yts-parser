@@ -274,11 +274,11 @@ class Movie
             }
             if ($this->fhdTorrent && !$this->fhdComplete) {
                 $fhdbutton = "<button class='pageButtons download' href='#' data-title='{$encodedTitle}'
-                    data-year='{$encodedYear}' data-quality='fhd'>FHD</button";
+                    data-year='{$encodedYear}' data-quality='fhd'>FHD</button>";
             }
             if ($this->uhdTorrent && !$this->uhdComplete) {
                 $uhdbutton = "<button class='pageButtons download' href='#' data-title='{$encodedTitle}'
-                    data-year='{$encodedYear}' data-quality='uhd'>UHD</button";
+                    data-year='{$encodedYear}' data-quality='uhd'>UHD</button>";
             }
         }
         $ret = "<div class='movie'>
@@ -287,9 +287,7 @@ class Movie
                 <figure>
                     <img src='{$this->imgUrl}'/>
                     <figcaption class='hidden'>
-                        <div class='download-container'>
-                            {$hdbutton}{$fhdbutton}{$uhdbutton}
-                        </div>
+                        {$hdbutton}{$fhdbutton}{$uhdbutton}
                     </figcaption>
                 </figure>
             </a><br />
