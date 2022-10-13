@@ -635,14 +635,14 @@ class YTS
     {
         $ret = new MovieCollection();
         $PAGE_COUNT = self::PAGE_COUNT;
-        $offset = $pageNo * self::PAGE_COUNT;
+        $offset = ($pageNo - 1) * self::PAGE_COUNT;
         $remove4k = null;
         if ($exc4k) {
             $remove4k = " AND `complete2160` = 0";
         }
         $res = $this->db->query(
             "SELECT * FROM `movies`
-            WHERE `download` = 1{$remove4k}
+            WHERE download=1{$remove4k}
             ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), `year`
             LIMIT {$offset},{$PAGE_COUNT}"
         );
