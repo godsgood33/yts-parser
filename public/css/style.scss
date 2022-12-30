@@ -115,6 +115,8 @@ figcaption {
     position: relative;
     background-size: cover;
     z-index: 1;
+    //transform: skew(20deg);
+    //overflow: hidden;
     // height: 500px;
     // width: 100%;
 }
@@ -122,11 +124,12 @@ figcaption {
 .plex-text {
     position: absolute;
     top: 14px;
-    left: 0;
+    right: 9px;
+    //transform: translate(-50%, -50%);
     transform: rotate(45deg);
-    // font-size: 72px;
+    font-size: 16pt;
     color: white;
-    background-color: orange;
+    //background-color: orange;
     text-align: center;
     text-transform: uppercase;
     font-weight: bold;

@@ -4,7 +4,7 @@ namespace YTS;
 
 use DateTime;
 use Exception;
-use SQLite3;
+use mysqli;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\RequestException;
@@ -21,9 +21,9 @@ class YTS
     /**
      * Database connection
      *
-     * @var SQLite3
+     * @var mysqli
      */
-    private SQLite3 $db;
+    private mysqli $db;
 
     /**
      * Base page
@@ -51,7 +51,7 @@ class YTS
      *
      * @var int
      */
-    public const PAGE_COUNT = 30;
+    //public const PAGE_COUNT = $_ENV['MOVIE_COUNT'];
 
     /**
      * Decide if the Transmission server is available
@@ -72,19 +72,30 @@ class YTS
      */
     public function __construct()
     {
-        $dbFile = dirname(__DIR__).'/my-movies.db';
+        /*$dbFile = dirname(__DIR__).'/my-movies.db';
         if (!file_exists($dbFile)) {
             die("Cannot find movie database my-movies.db");
         } elseif (!is_readable($dbFile)) {
             die("Cannot read movie database");
         } elseif (!is_writeable($dbFile)) {
             die("Cannot write to movie database");
-        }
+        }*/
 
         $this->dom = new Dom();
         $this->client = new Client();
-        $this->db = new SQLite3(dirname(__DIR__).'/my-movies.db');
-        $this->db->enableExceptions(true);
+        try {
+            $host = $_ENV['DATABASE_HOST'];
+            $user = $_ENV['DATABASE_USER'];
+            $pwd = $_ENV['DATABASE_PASSWORD'];
+            $name = $_ENV['DATABASE_NAME'];
+
+            $this->db = new mysqli($host, $user, $pwd, $name);
+        } catch (Exception $e) {
+            if ($this->db->connect_errno) {
+                print($this->db->connect_error);
+            }
+            die;
+        }
         $this->movies = new MovieCollection();
         $this->populateMovies();
 
@@ -127,6 +138,56 @@ class YTS
                     die(print_r($ce, true));
             }
         }
+    }
+
+    /**
+     * Method to check a specific url
+     *
+     * @param string $url
+     *
+     * @return Movie
+     */
+    public function loadUrl(string $url): Movie
+    {
+        try {
+            $this->response = $this->client->request('GET', $url, [
+                'headers' => [
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 6.1; Win64; rv:89.0) Gecko/20100101 Firefox/89.0'
+                ]
+            ]);
+            $this->dom->loadStr($this->response->getBody());
+        } catch (ConnectException $ce) {
+            switch ($ce->getHandlerContext()['errno']) {
+                case 7:
+                    print "Connection error on page {$url}...retrying in 5 sec".PHP_EOL;
+                    sleep(5);
+                    $this->loadUrl($url);
+                    break;
+                case 28:
+                    print "SSH error on page {$url}...retrying in 5 sec".PHP_EOL;
+                    sleep(5);
+                    $this->loadUrl($url);
+                    break;
+                case 504:
+                    print "504 error";
+                    // no break
+                default:
+                    die(print_r($ce, true));
+            }
+        }
+
+        $img = $this->dom->find('#movie-poster img.img-responsive');
+        $imgUrl = $img->src;
+        $title = $this->dom->find('#movie-info .hidden-xs h1')->text;
+        $year = $this->dom->find('#movie-info .hidden-xs h2')[0]->text;
+
+        $movie = new Movie($title, $year);
+        $movie->url = $url;
+        $movie->imgUrl = $imgUrl;
+
+        $this->getTorrentLinks($movie);
+
+        return $movie;
     }
 
     /**
@@ -293,13 +354,13 @@ class YTS
 
         //$this->movies->removeMovie($m);
 
-        $query = "DELETE FROM movies 
-            WHERE 
-                title='{$this->db->escapeString($m->title)}' AND 
-                year={$this->db->escapeString($m->year)}";
+        $query = "DELETE FROM movies
+            WHERE
+                title='{$this->db->real_escape_string($m->title)}' AND
+                year={$this->db->real_escape_string($m->year)}";
 
         try {
-            return $this->db->exec($query);
+            return $this->db->real_query($query);
         } catch (Exception $e) {
             die(print_r($e, true));
         }
@@ -320,12 +381,18 @@ class YTS
      */
     private function populateMovies()
     {
-        $res = $this->db->query(
-            "SELECT * FROM `movies`
-            ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), `year`"
-        );
+        $query = "SELECT * FROM `movies`
+            ORDER BY REPLACE(
+                REPLACE(
+                    REPLACE(
+                        `title`, 'The ', ''
+                    ), 'A ', ''
+                ), 'An ', ''
+            ), `year`";
 
-        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+        $res = $this->db->query($query);
+
+        while ($row = $res->fetch_assoc()) {
             $m = Movie::fromDB($row);
             $this->movies->addData($m);
         }
@@ -364,18 +431,13 @@ class YTS
     public function getMoviesByPage(int $pageNo): MovieCollection
     {
         $ret = new MovieCollection();
-        $PAGE_COUNT = self::PAGE_COUNT;
-        $offset = ($pageNo - 1) * self::PAGE_COUNT;
-        $res = $this->db->query(
-            "SELECT *
-            FROM `movies`
-            ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), `year`
-            LIMIT {$offset},{$PAGE_COUNT}"
-        );
+        $offset = ($pageNo - 1) * $_ENV['MOVIE_COUNT'];
 
-        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
-            $movie = Movie::fromDB($row);
-            $ret->addData($movie);
+        $mi = new MovieIterator($this->movies);
+        $mi->setPosition($offset);
+        for ($x = 0; $x < $_ENV['MOVIE_COUNT']; $x++) {
+            $position = $offset + $x;
+            $ret->addData($this->movies->getData($position));
         }
 
         return $ret;
@@ -388,13 +450,12 @@ class YTS
      */
     public function getPageCount(): int
     {
-        $PAGE_COUNT = self::PAGE_COUNT;
-        $res = $this->db->querySingle(
-            "SELECT count(1) / {$PAGE_COUNT} AS 'count'
+        $res = $this->db->query(
+            "SELECT count(1) / {$_ENV['MOVIE_COUNT']} AS 'count'
             FROM `movies`"
         );
 
-        return $res;
+        return $res->fetch_assoc()['count'];
     }
 
     /**
@@ -418,7 +479,7 @@ class YTS
             `title`,`year`"
         );
 
-        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+        while ($row = $res->fetch_assoc()) {
             $movie = Movie::fromDB($row);
             $movies->addData($movie);
         }
@@ -436,7 +497,7 @@ class YTS
             `title`,`year`"
         );
 
-        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+        while ($row = $res->fetch_assoc()) {
             $movie = Movie::fromDB($row);
             $movies->addData($movie);
         }
@@ -465,10 +526,18 @@ class YTS
     {
         $ins = $m->insert();
 
-        $res = $this->db->exec(
+        foreach ($ins as $k => $v) {
+            if (is_null($v)) {
+                $ins[$k] = 'NULL';
+            } else {
+                $ins[$k] = $this->db->real_escape_string($v);
+            }
+        }
+
+        $res = $this->db->real_query(
             "INSERT INTO `movies` (`".
             implode("`,`", array_keys($ins))."`) VALUES ('".
-            implode("','", array_map([SQLite3::class, 'escapeString'], array_values($ins)))."')"
+            implode("','", array_values($ins))."')"
         );
 
         return $res;
@@ -483,13 +552,13 @@ class YTS
      */
     public function updateMovie(Movie $m): bool
     {
-        $res = $this->db->exec(
-            "UPDATE `movies` 
-            SET {$m->update()} 
-            WHERE 
-            `title` = '{$this->db->escapeString($m->title)}' 
-            AND 
-            `year` = '{$this->db->escapeString($m->year)}'"
+        $res = $this->db->real_query(
+            "UPDATE `movies`
+            SET {$m->update()}
+            WHERE
+            `title` = '{$this->db->real_escape_string($m->title)}'
+            AND
+            `year` = '{$this->db->real_escape_string($m->year)}'"
         );
 
         return $res;
@@ -503,13 +572,13 @@ class YTS
      */
     public function updateDownload(string $title, int $year)
     {
-        $this->db->exec(
+        $this->db->real_query(
             "UPDATE movies
             SET download = '1'
             WHERE
-            `title` = '{$this->db->escapeString($title)}'
+            `title` = '{$this->db->real_escape_string($title)}'
             AND
-            `year` = '{$this->db->escapeString($year)}'"
+            `year` = '{$this->db->real_escape_string($year)}'"
         );
 
         $m = $this->getMovie($title, $year);
@@ -530,21 +599,20 @@ class YTS
      */
     public function search(string $search): string
     {
-        $PAGE_COUNT = self::PAGE_COUNT;
         $sql = "SELECT *
         FROM movies
         WHERE
-        `title` LIKE '%{$this->db->escapeString($search)}%'
+        `title` LIKE '%{$this->db->real_escape_string($search)}%'
         OR
-        `year` LIKE '%{$this->db->escapeString($search)}%'
+        `year` LIKE '%{$this->db->real_escape_string($search)}%'
         ORDER BY `title`,`year`
-        LIMIT {$PAGE_COUNT}";
+        LIMIT {$_ENV['MOVIE_COUNT']}";
         $res = $this->db->query($sql);
 
         $tsConnected = $this->isTransmissionConnected();
         $ret = '';
-        if (is_a($res, 'SQLite3Result') && $res->numColumns() > 1) {
-            while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+        if (is_a($res, 'mysqli_result') && $res->num_rows > 1) {
+            while ($row = $res->fetch_assoc()) {
                 $movie = Movie::fromDB($row);
 
                 $ret .= $movie->getHtml($tsConnected);
@@ -573,14 +641,14 @@ class YTS
             ((`torrent2160` != '' AND `complete2160` = 0)
             OR
             (`torrent1080` != '' AND `complete1080` = 0))
-            ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'An ', ''), 'A ', ''), `year`"
+            ORDER BY REPLACE(REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'An ', ''), 'A ', ''), ' ', '') `year`"
         );
 
         if (is_bool($res)) {
             return $ret;
         }
 
-        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+        while ($row = $res->fetch_assoc()) {
             $movie = Movie::fromDB($row);
             $ret->addData($movie);
         }
@@ -598,8 +666,7 @@ class YTS
     public function getDuplicateMovies(int $pageNo = 0): MovieCollection
     {
         $ret = new MovieCollection();
-        $PAGE_COUNT = self::PAGE_COUNT;
-        $offset = $pageNo * self::PAGE_COUNT;
+        $offset = $pageNo * $_ENV['MOVIE_COUNT'];
         $res = $this->db->query(
             "SELECT * FROM `movies`
             WHERE `title` IN (
@@ -608,14 +675,14 @@ class YTS
                 HAVING COUNT(`imgUrl`) > 1
             )
             ORDER BY REPLACE(REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), ' ', ''), `year`
-            LIMIT {$offset},{$PAGE_COUNT}"
+            LIMIT {$offset},{$_ENV['MOVIE_COUNT']}"
         );
 
         if (is_bool($res)) {
             return $ret;
         }
 
-        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+        while ($row = $res->fetch_assoc()) {
             $movie = Movie::fromDB($row);
             $ret->addData($movie);
         }
@@ -634,8 +701,7 @@ class YTS
     public function getDownloaded(int $pageNo = 0, bool $exc4k = false): MovieCollection
     {
         $ret = new MovieCollection();
-        $PAGE_COUNT = self::PAGE_COUNT;
-        $offset = ($pageNo - 1) * self::PAGE_COUNT;
+        $offset = ($pageNo - 1) * $_ENV['MOVIE_COUNT'];
         $remove4k = null;
         if ($exc4k) {
             $remove4k = " AND `complete2160` = 0";
@@ -643,15 +709,15 @@ class YTS
         $res = $this->db->query(
             "SELECT * FROM `movies`
             WHERE download=1{$remove4k}
-            ORDER BY REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'A ', ''), 'An ', ''), `year`
-            LIMIT {$offset},{$PAGE_COUNT}"
+            ORDER BY REPLACE(REPLACE(REPLACE(REPLACE(`title`, 'The ', ''), 'An ', ''), 'A ', ''), ' ', ''), `year`
+            LIMIT {$offset},{$_ENV['MOVIE_COUNT']}"
         );
 
         if (is_bool($res)) {
             return $ret;
         }
 
-        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+        while ($row = $res->fetch_assoc()) {
             $movie = Movie::fromDB($row);
             $ret->addData($movie);
         }
@@ -726,7 +792,7 @@ class YTS
             if (empty($transServerUser) || empty($transServerPassword)) {
                 die('You must specify a username and password to connect to a Transmission server');
             }
-            
+
             $transmission = <<<EOF
             TRANSMISSION_URL={$transServer}
             TRANSMISSION_PORT={$transServerPort}
@@ -763,9 +829,9 @@ class YTS
         }
         $api = new PlexApi($plexServer);
         $api->setToken($plexToken);
-    
+
         $res = $api->getLibrarySections();
-    
+
         print "ID\t".str_pad("Title", 20)."Path".PHP_EOL;
         $libraries = [];
 
@@ -777,7 +843,7 @@ class YTS
                 print $section->key."\t".str_pad($section->title, 20).$section->location->path.PHP_EOL;
             }
         }
-    
+
         $id = readline("Which library do you want to query when searching for movies? ");
 
         if (!in_array($id, $libraries, true)) {
@@ -792,8 +858,14 @@ class YTS
      */
     public static function createDatabase()
     {
-        $db = new SQLite3('my-movies.db');
-        $db->exec("CREATE TABLE IF NOT EXISTS `movies` (
+        $db = new mysqli(
+            $_ENV['DATABASE_HOST'],
+            $_ENV['DATABASE_USER'],
+            $_ENV['DATABASE_PASSWORD'],
+            $_ENV['DATABASE_NAME'],
+            $_ENV['DATABASE_PORT']
+        );
+        $db->real_query("CREATE TABLE IF NOT EXISTS `movies` (
             `hash` varchar(255) NOT NULL,
             `title` varchar(255) NOT NULL,
             `year` varchar(5) NOT NULL,
@@ -810,14 +882,14 @@ class YTS
             PRIMARY KEY (`hash`)
         )");
 
-        $db->exec("CREATE TABLE IF NOT EXISTS `meta` (
+        $db->real_query("CREATE TABLE IF NOT EXISTS `meta` (
             `field` varchar(255) NOT NULL,
             `value` mediumtext DEFAULT NULL,
             PRIMARY KEY (`field`)
         )");
 
         $dt = new DateTime();
-        $db->exec("INSERT INTO `meta` (`field`,`value`) VALUES ('db_version','{$dt->format('Y-m-d')}')");
+        $db->real_query("INSERT INTO `meta` (`field`,`value`) VALUES ('db_version','{$dt->format('Y-m-d')}')");
     }
 
     /**
@@ -830,12 +902,26 @@ class YTS
             return;
         }
 
-        $mydb = new SQLite3('my-movies.db');
-        $myVer = $mydb->querySingle("SELECT `value` FROM `meta` WHERE `field`='db_version'");
+        $db = new mysqli(
+            $_ENV['DATABASE_HOST'],
+            $_ENV['DATABASE_USER'],
+            $_ENV['DATABASE_PASSWORD'],
+            $_ENV['DATABASE_NAME'],
+            $_ENV['DATABASE_PORT']
+        );
+        $res = $db->query("SELECT `value` FROM `meta` WHERE `field`='db_version'");
+        $myVer = $res->fetch_column();
         $myDate = new DateTime($myVer);
 
-        $db = new SQLite3('movies.db');
-        $ver = $db->querySingle("SELECT `value` FROM `meta` WHERE `field`='db_version'");
+        $db = new mysqli(
+            $_ENV['DATABASE_HOST'],
+            $_ENV['DATABASE_USER'],
+            $_ENV['DATABASE_PASSWORD'],
+            $_ENV['DATABASE_NAME'],
+            $_ENV['DATABASE_PORT']
+        );
+        $res = $db->query("SELECT `value` FROM `meta` WHERE `field`='db_version'");
+        $ver = $res->fetch_column();
         $date = new DateTime($ver);
 
         if ($date <= $myDate) {
@@ -855,25 +941,6 @@ class YTS
      */
     public static function mergeDatabase()
     {
-        $mydb = new SQLite3('my-movies.db');
-        $db = new SQLite3('movies.db');
-
-        $res = $db->query("SELECT * FROM `movies`");
-
-        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
-            print "{$row['title']} ({$row['year']})".PHP_EOL;
-            $mydb->exec(
-                "UPDATE `movies` SET
-                    `url`='{$mydb->escapeString($row['url'])}',
-                    `imgUrl`='{$mydb->escapeString($row['imgUrl'])}',
-                    `torrent720`='{$mydb->escapeString($row['torrent720'])}',
-                    `torrent1080`='{$mydb->escapeString($row['torrent1080'])}',
-                    `torrent2160`='{$mydb->escapeString($row['torrent2160'])}'
-                WHERE
-                    `title`='{$mydb->escapeString($row['title'])}' AND
-                    `year`={$mydb->escapeString($row['year'])}"
-            );
-        }
     }
 
     /**

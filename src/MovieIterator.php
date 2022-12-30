@@ -32,6 +32,16 @@ class MovieIterator implements Iterator
     }
 
     /**
+     * Method to set the position
+     *
+     * @param int $position
+     */
+    public function setPosition(int $position)
+    {
+        $this->position = $position;
+    }
+
+    /**
      * Method to return the current key position
      *
      * @return int

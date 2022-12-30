@@ -2,8 +2,6 @@
 
 namespace YTS;
 
-use jc21\Movies\Movie as MoviesMovie;
-
 /**
  * Class to create a movie
  */
@@ -85,7 +83,7 @@ class Movie
      * @var string
      */
     public ?string $uhdTorrent;
-    
+
     /**
      * Has the 2160p torrent been downloaded
      *
@@ -106,6 +104,13 @@ class Movie
      * @var string
      */
     public string $hash;
+
+    /**
+     * PlexMovie data
+     *
+     * @var PlexMovie
+     */
+    public ?PlexMovie $pm;
 
     /**
      * Constructor
@@ -130,6 +135,7 @@ class Movie
         $this->fhdComplete = 0;
         $this->uhdTorrent = null;
         $this->uhdComplete = 0;
+        $this->pm = null;
     }
 
     /**
@@ -197,36 +203,43 @@ class Movie
     }
 
     /**
-     * Method to set resolutions
+     * Store plex movie data
      *
-     * @param MoviesMovie $res
+     * @param PlexMovie $pm
      */
-    public function setDownload(MoviesMovie $res)
+    public function setPlexMovie(PlexMovie $pm)
     {
-        if ($res->media->videoResolution == 'sd') {
-            $this->download = true;
+        $this->pm = $pm;
+    }
+
+    /**
+     * Method to set resolutions
+     */
+    public function setDownload()
+    {
+        if (is_null($this->pm)) {
             return;
         }
 
-        if ($res->media->videoResolution == '720') {
-            $this->download = true;
-            $this->hdComplete = true;
-            return;
-        }
-        
-        if ($res->media->videoResolution == '1080') {
-            $this->download = true;
-            $this->hdComplete = true;
-            $this->fhdComplete = true;
-            return;
-        }
-        
-        if ($res->media->videoResolution == '4k') {
-            $this->download = false;
-            $this->hdComplete = true;
-            $this->fhdComplete = true;
-            $this->uhdComplete = true;
-        }
+        $this->download = match ($this->pm->getResolution()) {
+            'sd', '720', '1080' => true,
+            default => false
+        };
+
+        $this->hdComplete = match ($this->pm->getResolution()) {
+            'sd' => false,
+            default => true
+        };
+
+        $this->fhdComplete = match ($this->pm->getResolution()) {
+            'sd', '720' => false,
+            default => true
+        };
+
+        $this->uhdComplete = match ($this->pm->getResolution()) {
+            'sd', '720', '1080' => false,
+            default => true
+        };
     }
 
     /**
@@ -281,7 +294,22 @@ class Movie
                     data-year='{$encodedYear}' data-quality='uhd'>UHD</button>";
             }
         }
-        $ret = "<div class='movie'>
+        $plexBanner = null;
+        if (!is_null($this->pm)) {
+            if (is_array($this->pm->media)) {
+                $this->pm->media = $this->pm->media[0];
+            }
+
+            $res = match ($this->pm->getResolution()) {
+                '720' => 'red',
+                '1080' => 'orange',
+                '4k' => 'green',
+                default => null
+            };
+            $plexBanner = "<div class='plex-banner'><div class='plex-text' style='background-color: {$res}'>PLEX</div></div>";
+        }
+
+        $ret = "<div class='movie'>{$plexBanner}
             <a href='/movie/{$encodedTitle}/year/{$this->year}/' ".
                 "target='_blank'>
                 <figure>
@@ -434,7 +462,7 @@ EOF;
     public static function fromDB(array $sc): Movie
     {
         $self = new static($sc['title'], $sc['year']);
-        
+
         $self->url = $sc['url'];
         $self->imgUrl = $sc['imgUrl'];
         $self->hdTorrent = $sc['torrent720'];
@@ -470,16 +498,17 @@ EOF;
     public function insert(): array
     {
         return [
+            'hash' => $this->hash,
             'title' => $this->title,
             'year' => $this->year,
             'url' => $this->url,
-            'imgUrl' => $this->imgUrl,
+            'imgUrl' => (is_null($this->imgUrl) ? '' : $this->imgUrl),
             'download' => ($this->download ? 1 : 0),
-            'torrent720' => $this->hdTorrent,
+            'torrent720' => (is_null($this->hdTorrent) ? '' : $this->hdTorrent),
             'complete720' => ($this->hdComplete ? 1 : 0),
-            'torrent1080' => $this->fhdTorrent,
+            'torrent1080' => (is_null($this->fhdTorrent) ? '' : $this->fhdTorrent),
             'complete1080' => ($this->fhdComplete ? 1 : 0),
-            'torrent2160' => $this->uhdTorrent,
+            'torrent2160' => (is_null($this->uhdTorrent) ? '' : $this->uhdTorrent),
             'complete2160' => ($this->uhdComplete ? 1 : 0),
         ];
     }
@@ -522,6 +551,7 @@ EOF;
     public function replace(): array
     {
         return [
+            'hash' => $this->hash,
             'title' => $this->title,
             'year' => $this->year,
             'url' => $this->url,

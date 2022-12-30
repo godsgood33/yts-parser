@@ -115,10 +115,10 @@ figcaption {
 .plex-text {
   position: absolute;
   top: 14px;
-  left: 0;
+  right: 9px;
   transform: rotate(45deg);
+  font-size: 16pt;
   color: white;
-  background-color: orange;
   text-align: center;
   text-transform: uppercase;
   font-weight: bold;
