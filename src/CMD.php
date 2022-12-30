@@ -63,6 +63,13 @@ class CMD
     private bool $download;
 
     /**
+     * Variable to decide if we are operating in a docker container
+     *
+     * @var bool
+     */
+    private bool $docker;
+
+    /**
      * Variable to retrieve the highest versions
      *
      * @var bool
@@ -126,6 +133,13 @@ class CMD
     private ?string $url;
 
     /**
+     * Variable to store to signal updating the Plex database
+     *
+     * @var bool
+     */
+    private bool $plex;
+
+    /**
      * Magic getter method
      *
      * @param string $var
@@ -142,6 +156,20 @@ class CMD
     }
 
     /**
+     * Magic setter method
+     *
+     * @param string $var
+     * @param string $val
+     */
+    public function __set(string $var, $val)
+    {
+        $vars = get_class_vars(CMD::class);
+        if (in_array($var, array_keys($vars))) {
+            $this->{$var} = $val;
+        }
+    }
+
+    /**
      * Method to get the command line parameters and return an object with them
      *
      * @return stdClass
@@ -152,11 +180,12 @@ class CMD
         $arr = getopt('h', [
             'install::', 'update::', 'download::', 'page:', 'count:', 'highestVersion::',
             'torrentLinks::', 'plexToken::', 'libraryList::', 'help::', 'url:', 'verbose::',
-            'merge::', 'log::', 'clean::'
+            'merge::', 'log::', 'clean::', 'docker::', 'plex::'
         ]);
 
         $ret->showHelp = (bool) (isset($arr['h']) || isset($arr['help']));
 
+        $ret->docker = isset($arr['docker']);
         $ret->install = isset($arr['install']);
         $ret->update = isset($arr['update']);
         $ret->download = isset($arr['download']);
@@ -168,6 +197,7 @@ class CMD
         $ret->merge = isset($arr['merge']);
         $ret->log = isset($arr['log']);
         $ret->clean = isset($arr['clean']);
+        $ret->plex = isset($arr['plex']);
         $ret->startPage = (
             isset($arr['page']) && is_numeric($arr['page']) && $arr['page'] > 0 ? $arr['page'] : 1
         );

@@ -124,3 +124,19 @@ function toggleStatus() {
         ts = null;
     }
 }
+
+function saveMovieCount() {
+    $.ajax('/update-count', {
+        data: {
+            movieCount: $('#page-count').val()
+        },
+        success: function (res) {
+            console.log(res);
+        },
+        error: function (xhr, error, msg) {
+            console.error(msg);
+        },
+        method: 'post',
+        dataType: 'json'
+    });
+}

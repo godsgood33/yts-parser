@@ -34,6 +34,7 @@ a {
 img {
   display: block;
   max-width: 150px;
+  z-index: 0;
 }
 
 .havehd {
@@ -103,4 +104,24 @@ figcaption {
 .pageButtons:active {
   position: relative;
   top: 1px;
+}
+
+.plex-banner {
+  position: relative;
+  background-size: cover;
+  z-index: 1;
+}
+
+.plex-text {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  transform: rotate(45deg);
+  color: white;
+  background-color: orange;
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: bold;
+  letter-spacing: 3px;
+  mix-blend-mode: screen;
 }/*# sourceMappingURL=style.css.map */

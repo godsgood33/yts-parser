@@ -9,7 +9,7 @@ use jc21\Util\Size;
 $router = new Router();
 
 $router->get('/', function () {
-    require_once(dirname(__DIR__).'/pages/home.php');
+    require_once(ROOT.'/pages/home.php');
 });
 
 $router->get('/movie/{title}/year/{year}/', function ($encodedTitle, $year) {
@@ -77,16 +77,14 @@ $router->post('/download', function () {
 
         $yts->updateMovie($movie);
 
-        $ret = [
-            'remainingSpace' => $remainingSpace,
-            'humanReadableSpace' => $ts->humanReadableSize($remainingSpace),
-            'torrentName' => $tor->getName(),
-            'resolution' => $resolution,
-            'class' => $class,
-        ];
-
-        //print header('Content-Type: application/json').
-        print json_encode($ret);
+        print header("Content-type: application/json").
+            json_encode([
+                'remainingSpace' => $remainingSpace,
+                'humanReadableSpace' => $ts->humanReadableSize($remainingSpace),
+                'torrentName' => $tor->getName(),
+                'resolution' => $resolution,
+                'class' => $class,
+            ]);
     }
 });
 
@@ -96,7 +94,7 @@ $router->post('/deleteMovie', function () {
     $year = filter_var($_POST['year'], FILTER_VALIDATE_INT);
 
     $res = $yts->deleteMovie($title, $year);
-    print header('Content-type: application/json').
+    print header("Content-type: application/json").
         json_encode([
             'success' => $res,
             'title' => $title,
@@ -123,7 +121,7 @@ $router->post('/status', function () {
         }
     }
 
-    print header('Content-type: application/json').
+    print header("Content-type: application/json").
         json_encode([
             'downloadSize' => $totalDownloadSize->GB(),
             'freeSpace' => $totalFreeSpace->GB(),
@@ -133,17 +131,28 @@ $router->post('/status', function () {
         ]);
 });
 
+$router->post('/update-count', function () {
+    $movie_count = $_POST['movieCount'];
+    $str = file_get_contents(ROOT.'/.env');
+    $match = [];
+    $res = preg_match("/MOVIE_COUNT\=(\d+)/", $str, $match);
+    if ($res) {
+        $env = str_replace(
+            "MOVIE_COUNT={$match[1]}",
+            "MOVIE_COUNT={$movie_count}",
+            $str
+        );
+        file_put_contents(ROOT.'/.env', $env);
+    }
+
+    print header("Content-type: application/json").
+        json_encode([
+            'msg' => "Updated count to {$movie_count}"
+        ]);
+});
+
 $router->get('/plex', function () {
     require_once(dirname(__DIR__).'/pages/plex-movies.php');
 });
 
 $router->run();
-
-/**
- *Deprecated: Return type of PHPHtmlParser\Dom\Node\Collection::offsetGet($offset) should either be compatible with ArrayAccess::offsetGet(mixed $offset): mixed,
- *or the #[\ReturnTypeWillChange] attribute should be used to temporarily suppress the notice in
- * /var/www/html/vendor/paquettg/php-html-parser/src/PHPHtmlParser/Dom/Node/Collection.php on line 133
-
- * Warning: Cannot modify header information - headers already sent by (output started at
- * /var/www/html/vendor/paquettg/php-html-parser/src/PHPHtmlParser/Dom/Node/Collection.php:16) in /var/www/html/config/routes.php on line 83
-*/

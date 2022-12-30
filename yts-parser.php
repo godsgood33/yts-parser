@@ -14,18 +14,48 @@ use YTS\TransServer;
 use YTS\YTS;
 use YTS\DotEnv;
 use YTS\CMD;
+use YTS\PlexMovie;
 
 if (!file_exists(__DIR__.'/.env')) {
     touch(__DIR__.'/.env');
 }
 
-DotEnv::$LOAD_ENV = false;
+DotEnv::$LOAD_ENV = true;
 DotEnv::$LOAD_SERVER = false;
 
 DotEnv::load(__DIR__.'/.env');
 $cmd = CMD::getCommandParameters();
 $log = new Logger('db-update');
 $output = "%message%";
+
+if ($cmd->plex) {
+    $api = new PlexApi($_ENV['PLEX_SERVER']);
+    $api->setToken($_ENV['PLEX_TOKEN']);
+    $plex = new Plex($api);
+    $db = new mysqli(
+        $_ENV['DATABASE_HOST'],
+        $_ENV['DATABASE_USER'],
+        $_ENV['DATABASE_PASSWORD'],
+        $_ENV['DATABASE_NAME'],
+        $_ENV['DATABASE_PORT']
+    );
+
+    foreach ($plex->getLibrary() as $m) {
+        print $m->title.PHP_EOL;
+        $pm = new PlexMovie($m);
+        $data = $pm->insert();
+        $fields = array_keys($data);
+        $values = array_map([$db, 'real_escape_string'], array_values($data));
+        $insert = "INSERT IGNORE INTO plex (`".implode('`,`', $fields)."`) VALUES ('".implode("','", $values)."')";
+        $db->real_query($insert);
+    }
+}
+
+if ($cmd->docker) {
+    $cmd->update = true;
+    $cmd->startPage = getenv('start');
+    $cmd->pageCount = getenv('count');
+}
 
 if ($cmd->showHelp) {
     die(YTS::usage());
@@ -40,8 +70,15 @@ if ($cmd->log) {
 
 if ($cmd->url) {
     $yts = new YTS();
-    //$yts->testLoad($cmd->url);
-    
+    $movie = $yts->loadUrl($cmd->url);
+    $api = new PlexApi($_ENV['PLEX_SERVER']);
+    $api->setToken($_ENV['PLEX_TOKEN']);
+    $plex = new Plex($api);
+    $m = $plex->check($movie);
+    $movie->setPlexMovie(new PlexMovie($m));
+    $movie->setDownload();
+
+    $yts->insertMovie($movie);
     die;
 }
 
@@ -119,8 +156,7 @@ if ($cmd->update) {
     print "'-' = skipped, '+' = added, '!' = '404 error', '*' = existing";
 
     do {
-        $log->notice(($cmd->verbose ? "Loading page $page".PHP_EOL : PHP_EOL.$page));
-        print($cmd->verbose ? "Loading page $page".PHP_EOL : $page);
+        writeLog("Loading page {$page}", $page, true);
 
         $yts->load($page);
         $movies = $yts->findMovies();
@@ -136,8 +172,7 @@ if ($cmd->update) {
             $title = trim($movie->text);
             if (empty($title)) {
                 $skipped++;
-                $log->notice(($cmd->verbose ? "Skipping empty title".PHP_EOL : "!"));
-                print($cmd->verbose ? "Skipping empty title".PHP_EOL : "!");
+                writeLog("Skipping empty title", "!", true);
                 continue;
             }
 
@@ -158,8 +193,7 @@ if ($cmd->update) {
 
                 if ($nm->retrieved) {
                     $skipped++;
-                    $log->notice(($cmd->verbose ? "Skipping {$nm}".PHP_EOL : "-"));
-                    print($cmd->verbose ? "Skipping {$nm}".PHP_EOL : "-");
+                    writeLog("Skipping {$nm}", "-", true);
                     continue;
                 }
 
@@ -177,8 +211,7 @@ if ($cmd->update) {
             $res = $yts->getTorrentLinks($nm);
             if ($res === false) {
                 $error++;
-                $log->notice(($cmd->verbose ? "404 Error on {$nm}".PHP_EOL : "!"));
-                print($cmd->verbose ? "404 Error on {$nm}".PHP_EOL : "!");
+                writeLog("404 Error on {$nm}", "!", true);
                 $yts->deleteMovie($nm->title, $nm->year);
                 continue;
             }
@@ -187,7 +220,8 @@ if ($cmd->update) {
                 $onPlex = $plex->check($nm);
 
                 if ($onPlex) {
-                    $nm->setDownload($onPlex);
+                    $nm->setPlexMovie(new PlexMovie($onPlex));
+                    $nm->setDownload();
                 }
 
                 $nm->uhdTorrent ? $uhdMovies++ : null;
@@ -196,13 +230,11 @@ if ($cmd->update) {
             }
 
             if ($movieExists) {
-                $log->notice(($cmd->verbose ? "Updating {$nm}".PHP_EOL : "*"));
-                print($cmd->verbose ? "Updating {$nm}".PHP_EOL : "*");
+                writeLog("Updating {$nm}", "*", true);
                 $res = $yts->updateMovie($nm);
                 $existing++;
             } else {
-                $log->notice(($cmd->verbose ? "Adding {$nm}".PHP_EOL : "+"));
-                print($cmd->verbose ? "Adding {$nm}".PHP_EOL : "+");
+                writeLog("Adding {$nm}", "+", true);
                 $res = $yts->insertMovie($nm);
                 $new++;
             }
@@ -228,7 +260,7 @@ if ($cmd->update) {
     Existing movies: {$existing}
     Skipped movied: {$skipped}
     Retrieval errors: {$error}
-    
+
     EOF;
 }
 
@@ -246,7 +278,7 @@ if ($cmd->download) {
         print "Downloading {$movie->highestVersionAvailable()} of $movie".PHP_EOL;
 
         if ($movie->betterVersionAvailable()) {
-            $res = $ts->checkForDownload($movie, strtolower($m->highestVersionAvailable()));
+            $res = $ts->checkForDownload($movie, strtolower($movie->highestVersionAvailable()));
 
             if (is_a($res, 'Transmission\Model\Torrent')) {
                 $yts->updateMovie($movie);
@@ -310,5 +342,32 @@ if ($cmd->clean) {
         if ($count % 50 == 0) {
             print PHP_EOL;
         }
+    }
+}
+
+/**
+ * Method to write a log
+ *
+ * @param string $verboseLog
+ * @param string $shortLog
+ * @param bool $writeLog
+ */
+function writeLog(string $verboseLog, string $shortLog, bool $writeLog = false)
+{
+    /** @var CMD $cmd */
+    $cmd = $GLOBALS['cmd'];
+    /** @var Monolog/Logger $file */
+    $file = $GLOBALS['log'];
+
+    $log = $cmd->verbose ? $verboseLog.PHP_EOL : $shortLog;
+
+    print $log;
+
+    if ($writeLog) {
+        $file->notice($log);
+    }
+
+    if ($cmd->docker) {
+        error_log($log);
     }
 }

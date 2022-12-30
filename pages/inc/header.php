@@ -4,7 +4,6 @@ use YTS\YTS;
 
 $yts = new YTS();
 $page = isset($_GET['page']) ? $_GET['page'] : 1;
-//die("<pre>".print_r($_SERVER, true)."</pre>");
 
 $title = 'Movie Listing';
 if (isset($_SERVER['REQUEST_URI'])) {
@@ -57,7 +56,13 @@ if (isset($_SERVER['REQUEST_URI'])) {
             print "<a class='pageButtons' href='/downloaded/'>Downloaded</a>&nbsp;&nbsp;";
         } ?>
         <a href='#' class='pageButtons' onclick='javascript:toggleStatus()'>Toggle</a>
-        <span id='movieCount'><?php print $yts->getMovieCount(); ?></span>
+        <input type=number id='page-count' min=10 max=100 onchange='javascript:saveMovieCount();'
+            value=<?php print $_ENV['MOVIE_COUNT']; ?>
+        />
+        <span
+            id='movieCount'><?php print $yts->getMovieCount(); ?></span>
+        <span
+            id='pageCount'><?php print $yts->getPageCount() ;?></span>
     </div>
 
     <div>
@@ -75,7 +80,7 @@ if (isset($_SERVER['REQUEST_URI'])) {
 
         <div id='pager'>
             <?php
-            $pageCount = (int) $yts->getMovieCount() / YTS::PAGE_COUNT;
+            $pageCount = (int) $yts->getMovieCount() / $_ENV['MOVIE_COUNT'];
             $url = (isset($_SERVER['REDIRECT_URL']) ? $_SERVER['REDIRECT_URL'] : '/');
 
             if ($page > 1) {
